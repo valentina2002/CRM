@@ -71,6 +71,19 @@ Next.js (App Router) + TypeScript estricto · Tailwind CSS + shadcn/ui · Postgr
 - BD local `prisma dev` (PGlite): necesita `DATABASE_POOL_MAX="1"` y `SHADOW_DATABASE_URL` en `.env.local` (ya puestos).
   Dentro de `db.$transaction` usa siempre `tx`, nunca `db` (con pool de 1 conexión se bloquearía).
 
+## Notas técnicas (Fase 3 · Automatizaciones)
+- Motor puro en `src/lib/automation-engine.ts` (esquemas Zod de acciones, `matches()`, `runAutomationsForEvent()` sobre
+  `EnginePorts`). Pruebas en `automation-engine.test.ts` con un CRM falso en memoria (disparadores, acciones, sin bucles).
+- Procesador `src/lib/services/event-processor.ts`: toma eventos `pending` (los reclama → `processing`), corre las
+  automatizaciones en una transacción por evento, guarda `AutomationRun` (detalle por acción), suma `runCount`, registra
+  actividad y marca `processed` (o `failed`). Los puertos NO pueden emitir eventos → sin cadenas infinitas.
+- Se ejecuta al instante tras cada mutación (`runAction` llama `processPendingEvents()` y devuelve `automations` →
+  toast "⚡ N automatizaciones ejecutadas"). Respaldo: `GET /api/cron/process-events` (Bearer CRON_SECRET), aún sin
+  programar en `vercel.json` (Hobby solo permite cron diario; decidir en Fase 6).
+- Condición: "Llega un mensaje" = contiene la palabra (sin mayúsculas ni tildes); "Cambio de etapa" = valor del enum.
+  Hasta 5 acciones por automatización. "Enviar WhatsApp" de una automatización queda `QUEUED` (`via: AUTOMATION`)
+  hasta la Fase 4. "Mover a etapa" mueve las oportunidades del contacto que no estén en Perdido.
+
 ## Reglas
 - Idioma: **interfaz, textos y mensajes en español (Colombia)**. Código, nombres de variables y commits en inglés.
 - Moneda COP (`Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })`), zona horaria `America/Bogota`, fechas `dd mmm yyyy`.

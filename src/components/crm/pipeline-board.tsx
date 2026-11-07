@@ -23,6 +23,7 @@ import type { Stage } from "@/generated/prisma/enums";
 import { STAGES, STAGE_LABEL } from "@/lib/constants";
 import { formatCOP } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { announceAutomations } from "./use-action";
 
 export type BoardDeal = {
   id: string;
@@ -50,8 +51,9 @@ export function PipelineBoard({ deals }: { deals: BoardDeal[] }) {
     startTransition(async () => {
       moveDeal({ id, stage });
       const result = await changeStageAction(id, stage);
-      if (result.ok) toast.success(`“${deal.title}” pasó a ${STAGE_LABEL[stage]}`);
-      else toast.error(result.error);
+      if (!result.ok) return void toast.error(result.error);
+      toast.success(`“${deal.title}” pasó a ${STAGE_LABEL[stage]}`);
+      announceAutomations(result.automations);
     });
   }
 
@@ -116,6 +118,7 @@ function DealCard({ deal, onMove, hidden }: { deal: BoardDeal; onMove: (id: stri
       {...attributes}
       {...listeners}
       aria-roledescription="tarjeta arrastrable"
+      aria-label={`${deal.title} · ${deal.contact.name} · ${formatCOP(deal.value)}`}
     >
       <CardBody deal={deal}>
         <NativeSelect

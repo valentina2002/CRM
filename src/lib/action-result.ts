@@ -1,25 +1,39 @@
 import "server-only";
 import { refresh } from "next/cache";
 import { DomainError } from "@/lib/services/core";
+import { processPendingEvents } from "@/lib/services/event-processor";
 import { requireUser } from "@/lib/session";
 
-export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
+export type AutomationSummary = { count: number; failed: number };
+export type ActionResult<T = undefined> = { ok: true; data: T; automations?: AutomationSummary } | { ok: false; error: string };
 
 /**
  * Wraps a server action body: checks the session (redirects to /login if missing), runs the
- * mutation, refreshes the client router, and turns DomainErrors into a Spanish message.
+ * mutation, processes the domain events it emitted (automations run right away, like the prototype),
+ * refreshes the client router, and turns DomainErrors into a Spanish message.
  */
 export async function runAction<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
   await requireUser();
+  let data: T;
   try {
-    const data = await fn();
-    refresh();
-    return { ok: true, data };
+    data = await fn();
   } catch (error) {
     if (error instanceof DomainError) return { ok: false, error: error.message };
     console.error(error);
     return { ok: false, error: "Algo salió mal. Intenta de nuevo." };
   }
+
+  // The change is already saved: an automation problem must not turn it into an error.
+  let automations: AutomationSummary | undefined;
+  try {
+    const { runs } = await processPendingEvents();
+    if (runs.length) automations = { count: runs.length, failed: runs.filter((r) => !r.ok).length };
+  } catch (error) {
+    console.error("Error ejecutando automatizaciones", error);
+  }
+
+  refresh();
+  return { ok: true, data, automations };
 }
 
 export function fail(error: string): ActionResult<never> {
