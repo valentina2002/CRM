@@ -17,6 +17,11 @@ export function bogotaMonth(date: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota", year: "numeric", month: "2-digit" }).format(date);
 }
 
+/** "YYYY-MM" of a calendar day stored as @db.Date (UTC midnight). */
+export function dayMonth(day: Date): string {
+  return day.toISOString().slice(0, 7);
+}
+
 export type DashboardInput = {
   contactCount: number;
   deals: { stage: Stage; value: number }[];
@@ -28,7 +33,7 @@ export type DashboardInput = {
 export function computeDashboard({ contactCount, deals, invoices, unread, now = new Date() }: DashboardInput) {
   const open = deals.filter((d) => OPEN_STAGES.includes(d.stage));
   const month = bogotaMonth(now);
-  const paidThisMonth = invoices.filter((i) => i.status === "PAID" && i.paidAt && bogotaMonth(i.paidAt) === month);
+  const paidThisMonth = invoices.filter((i) => i.status === "PAID" && i.paidAt && dayMonth(i.paidAt) === month);
   const receivable = invoices.filter((i) => i.status === "SENT" || i.status === "OVERDUE");
   const byStage = STAGES.map((s) => {
     const inStage = deals.filter((d) => d.stage === s.value);

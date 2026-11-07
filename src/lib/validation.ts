@@ -100,3 +100,35 @@ export const tagInputSchema = z.object({
 export function firstError(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Revisa los datos";
 }
+
+// ---------- Cuentas de cobro ----------
+
+const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida");
+
+export const invoiceItemSchema = z.object({
+  description: z.string().trim().min(1, "Cada actividad necesita una descripción").max(300),
+  quantity: z.coerce.number().int("La cantidad debe ser un número entero").min(1, "La cantidad mínima es 1").max(10000),
+  unitPrice: copAmount,
+});
+
+export const invoiceInputSchema = z
+  .object({
+    contactId: z.string().min(1, "Elige un cliente"),
+    issueDate: isoDay,
+    dueDate: isoDay,
+    items: z.array(invoiceItemSchema).min(1, "Agrega al menos una actividad").max(50),
+    notes: optionalText(1000),
+  })
+  .refine((v) => v.dueDate >= v.issueDate, { message: "La fecha límite no puede ser anterior a la de emisión", path: ["dueDate"] });
+export type InvoiceInput = z.output<typeof invoiceInputSchema>;
+
+export const issuerSchema = z.object({
+  name: z.string().trim().min(1, "Escribe tu nombre completo").max(160),
+  document: z.string().trim().min(1, "Escribe tu C.C. o NIT").max(60),
+  city: z.string().trim().min(1, "Escribe la ciudad").max(80),
+  paymentInfo: z.string().trim().max(500),
+  showAmountInWords: z.boolean(),
+});
+export type IssuerInput = z.output<typeof issuerSchema>;
+
+export const payInvoiceSchema = z.object({ invoiceId: z.string().min(1), paidAt: isoDay });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeDashboard, invoiceTotal } from "./dashboard";
-import { contactInputSchema, dealInputSchema, normalizeTags, taskInputSchema } from "./validation";
+import { contactInputSchema, dealInputSchema, invoiceInputSchema, normalizeTags, taskInputSchema } from "./validation";
 
 describe("normalizeTags", () => {
   it("splits, trims and dedupes case-insensitively", () => {
@@ -84,8 +84,8 @@ describe("dashboard", () => {
         { stage: "NEGOTIATION", value: 2000000 },
       ],
       invoices: [
-        { status: "PAID", paidAt: new Date("2026-11-02T15:00:00Z"), items: items(2400000) },
-        { status: "PAID", paidAt: new Date("2026-10-15T15:00:00Z"), items: items(999) }, // last month
+        { status: "PAID", paidAt: new Date("2026-11-02T00:00:00Z"), items: items(2400000) },
+        { status: "PAID", paidAt: new Date("2026-10-15T00:00:00Z"), items: items(999) }, // last month
         { status: "SENT", paidAt: null, items: items(2400000) },
         { status: "OVERDUE", paidAt: null, items: items(900000) },
         { status: "DRAFT", paidAt: null, items: items(1800000) },
@@ -101,16 +101,40 @@ describe("dashboard", () => {
     expect(d.maxStageValue).toBe(3300000);
   });
 
-  it("uses Bogotá month boundaries", () => {
-    // 1 nov 03:00 UTC is still 31 oct in Bogotá → not this month.
+  it("uses the Bogotá month for now and the calendar day for paidAt", () => {
+    // paidAt is a calendar day (31 oct); "now" is 1 nov 03:00 UTC = still 31 oct 22:00 in Bogotá → same month.
+    const late = computeDashboard({
+      now: new Date("2026-11-01T03:00:00Z"),
+      contactCount: 0,
+      unread: 0,
+      deals: [],
+      invoices: [{ status: "PAID", paidAt: new Date("2026-10-31T00:00:00Z"), items: items(7) }],
+    });
+    expect(late.collectedThisMonth).toBe(7);
     const d = computeDashboard({
       now,
       contactCount: 0,
       unread: 0,
       deals: [],
-      invoices: [{ status: "PAID", paidAt: new Date("2026-11-01T03:00:00Z"), items: items(5) }],
+      invoices: [{ status: "PAID", paidAt: new Date("2026-10-31T00:00:00Z"), items: items(5) }],
     });
     expect(d.collectedThisMonth).toBe(0);
     expect(d.maxStageValue).toBe(1);
+  });
+});
+
+describe("invoice schema", () => {
+  const base = { contactId: "c1", issueDate: "2026-11-06", dueDate: "2026-11-21", items: [{ description: " Plan SEO ", quantity: "1", unitPrice: "2.400.000" }] };
+  it("parses lines with COP amounts", () => {
+    const r = invoiceInputSchema.parse(base);
+    expect(r.items).toEqual([{ description: "Plan SEO", quantity: 1, unitPrice: 2400000 }]);
+    expect(r.notes).toBeNull();
+  });
+  it("requires at least one line and a due date after issue", () => {
+    expect(invoiceInputSchema.safeParse({ ...base, items: [] }).error?.issues[0]?.message).toBe("Agrega al menos una actividad");
+    expect(invoiceInputSchema.safeParse({ ...base, dueDate: "2026-11-01" }).error?.issues[0]?.message).toBe(
+      "La fecha límite no puede ser anterior a la de emisión",
+    );
+    expect(invoiceInputSchema.safeParse({ ...base, items: [{ description: "x", quantity: 0, unitPrice: 1 }] }).success).toBe(false);
   });
 });

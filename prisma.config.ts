@@ -13,5 +13,7 @@ export default defineConfig({
   datasource: {
     // Placeholder lets `prisma generate` run before DATABASE_URL exists; migrate/seed need the real one.
     url: process.env.DATABASE_URL ?? "postgresql://placeholder:placeholder@localhost:5432/placeholder",
+    // Only needed with the local `prisma dev` server (its main DB is template1). Unset on Neon.
+    ...(process.env.SHADOW_DATABASE_URL ? { shadowDatabaseUrl: process.env.SHADOW_DATABASE_URL } : {}),
   },
 });

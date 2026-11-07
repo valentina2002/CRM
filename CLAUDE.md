@@ -56,6 +56,21 @@ Next.js (App Router) + TypeScript estricto · Tailwind CSS + shadcn/ui · Postgr
   nombre del contacto existente; "Cobrado en el mes" usa `paidAt` en el mes actual de Bogotá.
 - Para pasar funciones de un Server Component a un Client Component usa `action.bind(null, id)`, no flechas.
 
+## Notas técnicas (Fase 2 · Cuentas de cobro)
+- Servicio: `src/lib/services/invoices.ts` (numeración `CC-###` = máximo + 1 con reintento, crear/editar/duplicar,
+  enviar, marcar pagada → `invoice.paid`, `checkOverdueInvoices()` → `invoice.overdue`, idempotente).
+- Reglas: solo se eliminan borradores; una cuenta pagada no se edita (se duplica); una vencida cuya fecha límite se mueve
+  a hoy o después vuelve a Pendiente; fecha de pago no futura. `paidAt` es `@db.Date` (día calendario).
+- "Enviar por WhatsApp" hoy guarda el mensaje en la conversación con estado `QUEUED` y marca la cuenta como Pendiente;
+  el envío real por Cloud API (texto + PDF como documento) se conecta en la Fase 4.
+- Documento: `InvoiceDocument` (pantalla) y `src/lib/invoice-pdf.tsx` (`@react-pdf/renderer`, en
+  `serverExternalPackages`). PDF en `/cuentas-de-cobro/[id]/pdf` (`?descargar` para adjunto). Total en letras:
+  `src/lib/number-words.ts` (opcional desde "Datos del emisor").
+- Job diario: `GET /api/cron/check-overdue` con `Authorization: Bearer $CRON_SECRET`; programado en `vercel.json`
+  (11:00 UTC = 6:00 Bogotá). También hay botón "Revisar vencimientos".
+- BD local `prisma dev` (PGlite): necesita `DATABASE_POOL_MAX="1"` y `SHADOW_DATABASE_URL` en `.env.local` (ya puestos).
+  Dentro de `db.$transaction` usa siempre `tx`, nunca `db` (con pool de 1 conexión se bloquearía).
+
 ## Reglas
 - Idioma: **interfaz, textos y mensajes en español (Colombia)**. Código, nombres de variables y commits en inglés.
 - Moneda COP (`Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })`), zona horaria `America/Bogota`, fechas `dd mmm yyyy`.

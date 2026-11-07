@@ -21,7 +21,9 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
+const db = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL, max: Number(process.env.DATABASE_POOL_MAX) || undefined }),
+});
 
 const today = todayISO();
 const day = (offset: number) => isoToDbDate(addDaysISO(today, offset));

@@ -8,6 +8,8 @@
 //  - Note model (many dated notes per contact) replaces the single Contact.notes text field.
 //  - ActivityLog gets contactId / type / data so the contact sheet can show its own history.
 //  - Contact.phone is kept as the E.164 WhatsApp number for quick lookup and dedupe.
+// Phase 2: Invoice.sentAt, Invoice.paidAt as @db.Date (a calendar day, avoids time-zone month shifts),
+//          IssuerSettings.showAmountInWords.
 
 generator client {
   provider = "prisma-client"
@@ -171,7 +173,8 @@ model Invoice {
   issueDate DateTime      @db.Date
   dueDate   DateTime      @db.Date
   status    InvoiceStatus @default(DRAFT)
-  paidAt    DateTime?
+  sentAt    DateTime? // first time it was sent / marked as sent
+  paidAt    DateTime?     @db.Date // payment date (calendar day)
   notes     String?
   items     InvoiceItem[]
   createdAt DateTime      @default(now())
@@ -193,6 +196,7 @@ model IssuerSettings {
   document    String // C.C. / NIT
   city        String
   paymentInfo String
+  showAmountInWords Boolean @default(true) // "Son: dos millones … pesos M/CTE" on the document
 }
 
 enum TriggerType {
