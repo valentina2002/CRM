@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRM SEO · Prototipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f6f9;--panel:#fff;--ink:#152033;--muted:#687487;--line:#e3e7ee;--side:#0f1a2c;--side2:#1a2842;--acc:#16956a;--acc2:#e6f6ef;--blue:#2d6ae0;--blue2:#e9f0fd;--amber:#b57c0c;--amber2:#fdf4e1;--red:#cf4040;--red2:#fcebeb;--gray2:#eef1f5;--r:10px}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,sans-serif;color:var(--ink);background:var(--bg);font-size:14px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{display:flex;min-height:100vh}
+aside{width:232px;background:var(--side);color:#c9d2e1;flex-shrink:0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.brand{padding:18px 18px 16px;font-weight:700;color:#fff;font-size:15px;display:flex;gap:10px;align-items:center}
+.logo{width:32px;height:32px;border-radius:9px;background:var(--acc);display:grid;place-items:center;color:#fff;font-weight:700}
+.brand small{display:block;font-weight:500;color:#8693a8;font-size:11.5px}
+nav{display:flex;flex-direction:column}
+nav a{display:flex;align-items:center;gap:11px;padding:9px 18px;color:#c9d2e1;text-decoration:none;font-weight:500;border-left:3px solid transparent}
+nav a:hover{background:var(--side2)}
+nav a.on{background:var(--side2);color:#fff;border-left-color:var(--acc)}
+nav a svg{width:17px;height:17px;flex-shrink:0}
+nav .sep{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#6c7a92;padding:16px 18px 6px}
+.nbadge{margin-left:auto;background:var(--acc);color:#fff;border-radius:10px;font-size:11px;padding:1px 7px;font-weight:600}
+.side-foot{margin-top:auto;padding:14px 18px;font-size:12px;color:#8693a8;border-top:1px solid #20304d}
+.side-foot button{background:none;border:1px solid #2c3d5e;color:#c9d2e1;border-radius:7px;padding:6px 10px;cursor:pointer;width:100%;margin-top:8px}
+main{flex:1;min-width:0;padding:26px 30px 40px}
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.top h1{margin:0;font-size:22px;letter-spacing:-.01em}
+.top p{margin:3px 0 0;color:var(--muted)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.btn:hover{filter:brightness(1.06)}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.btn.ghost:hover{background:var(--gray2)}
+.btn.sm{padding:5px 10px;font-size:12.5px}
+.btn.blue{background:var(--blue)}
+.icon-btn{background:none;border:0;cursor:pointer;color:var(--muted);font-size:18px;padding:2px 6px;border-radius:6px}
+.icon-btn:hover{background:var(--gray2);color:var(--ink)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.card h3{margin:0 0 12px;font-size:14.5px}
+.grid{display:grid;gap:16px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.kpi .l{color:var(--muted);font-size:12.5px;font-weight:500}
+.kpi .v{font-size:22px;font-weight:700;margin-top:4px;letter-spacing:-.01em}
+.kpi .s{font-size:12px;color:var(--muted);margin-top:2px}
+.two{grid-template-columns:1.4fr 1fr}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:10px 12px;border-bottom:1px solid var(--line);background:#fafbfc}
+td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+.tbl{padding:0;overflow:auto}
+.chip{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:20px;background:var(--gray2);color:#3d4a5e;margin:1px 3px 1px 0;font-weight:500}
+.st{font-size:12px;font-weight:600;padding:3px 9px;border-radius:20px;display:inline-block}
+.st.borrador{background:var(--gray2);color:#4b586c}.st.enviada{background:var(--blue2);color:var(--blue)}.st.pagada{background:var(--acc2);color:var(--acc)}.st.vencida{background:var(--red2);color:var(--red)}
+.muted{color:var(--muted)}.small{font-size:12.5px}
+.name{font-weight:600}
+input.f,select.f,textarea.f{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff;outline:none}
+input.f:focus,select.f:focus,textarea.f:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc2)}
+label.lb{display:block;font-size:12.5px;font-weight:600;margin:12px 0 5px;color:#3b475a}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.search{max-width:280px}
+/* pipeline */
+.board{display:grid;grid-template-columns:repeat(5,minmax(190px,1fr));gap:12px;overflow-x:auto;padding-bottom:6px}
+.col{background:#eaeef3;border-radius:var(--r);padding:10px;min-height:380px;transition:background .15s}
+.col.over{background:#dbe7f7}
+.colh{display:flex;justify-content:space-between;align-items:baseline;padding:2px 4px 10px;font-weight:600;font-size:13px}
+.colh span{color:var(--muted);font-weight:500;font-size:12px}
+.deal{background:#fff;border:1px solid var(--line);border-radius:9px;padding:11px;margin-bottom:9px;cursor:grab;box-shadow:0 1px 2px rgba(15,26,44,.04)}
+.deal:active{cursor:grabbing}
+.deal .t{font-weight:600;font-size:13.5px}
+.deal .c{color:var(--muted);font-size:12.5px;margin:2px 0 8px}
+.deal .b{display:flex;flex-direction:column;align-items:stretch;gap:6px}
+.deal select{font-size:12px;border:1px solid var(--line);border-radius:6px;padding:3px 4px;background:#fafbfc;width:100%;color:var(--muted)}
+/* chat */
+.chat{display:grid;grid-template-columns:300px 1fr;height:calc(100vh - 140px);min-height:520px;padding:0;overflow:hidden}
+.clist{border-right:1px solid var(--line);overflow:auto}
+.citem{padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;gap:10px}
+.citem:hover{background:#fafbfc}.citem.on{background:var(--acc2)}
+.av{width:36px;height:36px;border-radius:50%;background:#d7e0ec;display:grid;place-items:center;font-weight:700;font-size:13px;color:#33435c;flex-shrink:0}
+.citem .m{flex:1;min-width:0}
+.citem .p{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.citem .un{background:var(--acc);color:#fff;border-radius:10px;font-size:11px;padding:0 7px;height:18px;align-self:center;font-weight:600}
+.cpane{display:flex;flex-direction:column;min-width:0}
+.chead{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.coex{margin-left:auto;font-size:12px;background:var(--acc2);color:var(--acc);padding:4px 10px;border-radius:20px;font-weight:600}
+.coex.off{background:var(--gray2);color:var(--muted)}
+.msgs{flex:1;overflow:auto;padding:18px;background:#f0ece4 linear-gradient(0deg,rgba(255,255,255,.35),rgba(255,255,255,.35))}
+.msg{max-width:70%;margin-bottom:10px;display:flex;flex-direction:column}
+.msg .bub{padding:8px 11px;border-radius:10px;background:#fff;box-shadow:0 1px 1px rgba(0,0,0,.06);white-space:pre-wrap;word-wrap:break-word}
+.msg.me{margin-left:auto;align-items:flex-end}.msg.me .bub{background:#d9fdd3}
+.msg .meta{font-size:11px;color:#6d7686;margin-top:3px}
+.via{font-weight:600}.via.app{color:#8a5a00}.via.crm{color:var(--blue)}.via.auto{color:#7b3fc4}
+.composer{border-top:1px solid var(--line);padding:10px 12px;display:flex;gap:8px}
+.sim{border-top:1px dashed var(--line);padding:8px 12px;display:flex;gap:8px;background:#fbfbfc;align-items:center;flex-wrap:wrap}
+.sim span{font-size:12px;color:var(--muted);font-weight:600}
+.quick{display:flex;gap:6px;padding:8px 12px 0;flex-wrap:wrap}
+.quick button{border:1px solid var(--line);background:#fff;border-radius:20px;padding:3px 10px;font-size:12px;cursor:pointer}
+.quick button:hover{background:var(--gray2)}
+/* automations */
+.auto{display:flex;gap:16px;align-items:flex-start}
+.auto .body{flex:1}
+.flow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.node{font-size:12.5px;padding:5px 10px;border-radius:7px;border:1px solid var(--line);background:#fafbfc}
+.node.trg{background:var(--amber2);border-color:#f0dcae;color:#7a5307;font-weight:600}
+.arrow{color:var(--muted)}
+.sw{position:relative;width:40px;height:22px;flex-shrink:0}
+.sw input{display:none}
+.sw span{position:absolute;inset:0;background:#cdd4de;border-radius:20px;cursor:pointer;transition:.2s}
+.sw span:after{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.sw input:checked+span{background:var(--acc)}.sw input:checked+span:after{left:21px}
+/* bars */
+.bar{display:flex;align-items:center;gap:10px;margin:9px 0;font-size:13px}
+.bar .lbl{width:130px;flex-shrink:0}
+.bar .trk{flex:1;background:var(--gray2);border-radius:5px;height:10px;overflow:hidden}
+.bar .fill{height:100%;background:var(--acc);border-radius:5px}
+.bar .val{width:110px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.task{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--line)}
+.task:last-child{border-bottom:0}
+.task.done span{text-decoration:line-through;color:var(--muted)}
+.log{font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--line);display:flex;gap:10px}
+.log:last-child{border-bottom:0}
+.log time{color:var(--muted);flex-shrink:0;font-variant-numeric:tabular-nums}
+/* integraciones */
+.steps{counter-reset:s;list-style:none;padding:0;margin:0}
+.steps li{counter-increment:s;padding:9px 0 9px 36px;position:relative;border-bottom:1px solid var(--line)}
+.steps li:last-child{border-bottom:0}
+.steps li:before{content:counter(s);position:absolute;left:0;top:8px;width:24px;height:24px;border-radius:50%;background:var(--gray2);display:grid;place-items:center;font-weight:700;font-size:12px}
+.steps li.ok:before{content:"✓";background:var(--acc);color:#fff}
+code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+code{background:var(--gray2);padding:1px 5px;border-radius:5px}
+pre{background:#0f1a2c;color:#d6e2f5;padding:14px;border-radius:9px;overflow:auto;margin:0;white-space:pre-wrap;word-break:break-word}
+.mt{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:5px;display:inline-block;min-width:52px;text-align:center}
+.mt.GET{background:var(--acc2);color:var(--acc)}.mt.POST{background:var(--blue2);color:var(--blue)}.mt.PATCH{background:var(--amber2);color:var(--amber)}
+.note{background:var(--blue2);border:1px solid #cddcf8;color:#24457f;border-radius:9px;padding:11px 13px;font-size:13px}
+/* modal */
+.ov{position:fixed;inset:0;background:rgba(12,20,34,.45);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:50;overflow:auto}
+.hidden{display:none!important}
+.modal{background:#fff;border-radius:12px;width:100%;max-width:520px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.modal.wide{max-width:760px}
+.mh{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line)}
+.mh h3{margin:0;font-size:16px}
+.mb{padding:4px 20px 18px}
+.mf{display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;border-top:1px solid var(--line);background:#fafbfc;border-radius:0 0 12px 12px}
+.line{display:grid;grid-template-columns:1fr 70px 130px 30px;gap:8px;margin-bottom:8px}
+.line input{border:1px solid var(--line);border-radius:7px;padding:7px 9px;width:100%}
+.doc{border:1px solid var(--line);border-radius:8px;padding:28px 30px;margin-top:14px;background:#fff}
+.doc h2{text-align:center;margin:0 0 4px;font-size:18px;letter-spacing:.04em}
+.doc .c{text-align:center;color:var(--muted);margin-bottom:20px}
+.doc table td,.doc table th{padding:7px 8px}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#14213a;color:#fff;padding:10px 16px;border-radius:9px;font-weight:500;z-index:60;box-shadow:0 8px 24px rgba(0,0,0,.2);transition:opacity .3s}
+@media (max-width:900px){
+  .app{flex-direction:column}
+  aside{width:100%;height:auto;position:static}
+  nav{flex-direction:row;overflow-x:auto}
+  nav a{border-left:0;border-bottom:3px solid transparent;white-space:nowrap}
+  nav a.on{border-bottom-color:var(--acc)}
+  nav .sep,.side-foot{display:none}
+  main{padding:18px 14px}
+  .two,.row2{grid-template-columns:1fr}
+  .chat{grid-template-columns:1fr;height:auto}
+  .clist{max-height:220px;border-right:0;border-bottom:1px solid var(--line)}
+  .msgs{min-height:340px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand"><div class="logo">V</div><div>CRM SEO<small>Valentina · Consultoría SEO</small></div></div>
+    <nav id="nav"></nav>
+    <div class="side-foot">Prototipo con datos de ejemplo. Los cambios se guardan solo en este navegador.
+      <button onclick="App.reset()">Restablecer datos de ejemplo</button></div>
+  </aside>
+  <main id="main"></main>
+</div>
+
+<div id="ov" class="ov hidden" onclick="if(event.target===this)App.close()">
+  <div class="modal" id="modal">
+    <div class="mh"><h3 id="modalT"></h3><button class="icon-btn" onclick="App.close()">×</button></div>
+    <div class="mb" id="modalB"></div>
+    <div class="mf"><button class="btn ghost" onclick="App.close()" id="modalC">Cancelar</button><button class="btn" id="modalS">Guardar</button></div>
+  </div>
+</div>
+<div id="toast" class="toast hidden"></div>
+
+<script>
+(function(){
+const KEY='crm_seo_proto_v1';
+const STAGES=['Prospecto','Propuesta enviada','Negociación','Cliente activo','Perdido'];
+const SERVICES=['SEO técnico','SEO local','Contenidos / blog','Auditoría SEO','SEO para IA (GEO)'];
+const TRIG={contact_created:'Se crea un contacto',message_in:'Llega un mensaje de WhatsApp',stage_changed:'Un negocio cambia de etapa',invoice_paid:'Se paga una cuenta de cobro',invoice_overdue:'Una cuenta de cobro se vence'};
+const ACT={send_whatsapp:'Enviar WhatsApp',add_tag:'Agregar etiqueta',move_stage:'Mover a etapa',create_task:'Crear tarea'};
+const ICONS={
+ tablero:'M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z',
+ contactos:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+ pipeline:'M3 3h5v18H3zM10 3h5v12h-5zM17 3h4v8h-4z',
+ conversaciones:'M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-6.4A8 8 0 1 1 21 12z',
+ facturas:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5',
+ automatizaciones:'M13 2 3 14h9l-1 8 10-12h-9z',
+ integraciones:'M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4',
+ api:'M16 18l6-6-6-6M8 6l-6 6 6 6'
+};
+const NAV=[['tablero','Tablero'],['contactos','Contactos'],['pipeline','Pipeline'],['conversaciones','Conversaciones'],['facturas','Cuentas de cobro'],['automatizaciones','Automatizaciones'],['sep','Conexiones'],['integraciones','WhatsApp y API'],['api','Probar API']];
+
+/* ---------- utils ---------- */
+const $=s=>document.querySelector(s);
+const fmt=n=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(n||0);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=p=>p+Math.random().toString(36).slice(2,8);
+const hhmm=d=>d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+const iso=d=>{const x=new Date(d);x.setMinutes(x.getMinutes()-x.getTimezoneOffset());return x.toISOString().slice(0,10)};
+const today=()=>iso(new Date());
+const addDays=n=>{const d=new Date();d.setDate(d.getDate()+n);return iso(d)};
+const dfmt=s=>s?new Date(s+'T12:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}).replace(/ de /g,' '):'—';
+const digits=s=>String(s||'').replace(/\D/g,'');
+const initials=n=>String(n||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+const icon=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${ICONS[k]}"/></svg>`;
+
+/* ---------- seed ---------- */
+function seed(){
+  const c=[
+    {id:'c1',name:'Andrea Morales',company:'Megalámparas Guatemala',phone:'+502 5555 0101',email:'andrea@ejemplo.gt',service:'SEO técnico',tags:['cliente','retainer'],value:2400000},
+    {id:'c2',name:'Carlos Restrepo',company:'Clínica Dental Sonrisa',phone:'+57 300 555 0102',email:'carlos@ejemplo.co',service:'SEO local',tags:['lead'],value:1200000},
+    {id:'c3',name:'Luisa Gómez',company:'Ferretería El Tornillo',phone:'+57 310 555 0103',email:'luisa@ejemplo.co',service:'SEO local',tags:['cliente'],value:900000},
+    {id:'c4',name:'Jorge Ramírez',company:'Hotel Montaña Verde',phone:'+57 315 555 0104',email:'jorge@ejemplo.co',service:'Contenidos / blog',tags:['propuesta'],value:1800000},
+    {id:'c5',name:'Paula Henao',company:'Café Origen',phone:'+57 320 555 0105',email:'paula@ejemplo.co',service:'Auditoría SEO',tags:['lead'],value:1500000},
+    {id:'c6',name:'Felipe Arango',company:'Arango & Asociados Abogados',phone:'+57 301 555 0106',email:'felipe@ejemplo.co',service:'SEO para IA (GEO)',tags:['negociación'],value:2000000}
+  ];
+  const deals=[
+    {id:'d1',contactId:'c1',title:'Plan SEO 3 meses',stage:'Cliente activo',value:2400000},
+    {id:'d2',contactId:'c2',title:'SEO local Google Maps',stage:'Prospecto',value:1200000},
+    {id:'d3',contactId:'c3',title:'Ficha Google + reseñas',stage:'Cliente activo',value:900000},
+    {id:'d4',contactId:'c4',title:'4 artículos mensuales',stage:'Propuesta enviada',value:1800000},
+    {id:'d5',contactId:'c5',title:'Auditoría técnica',stage:'Prospecto',value:1500000},
+    {id:'d6',contactId:'c6',title:'Visibilidad en IA',stage:'Negociación',value:2000000}
+  ];
+  const m=(from,via,text,time)=>({id:uid('m'),from,via,text,time});
+  const convos={
+    c1:{unread:0,messages:[m('them',null,'Hola Valentina, ¿cómo vamos con las redirecciones 301?','09:12'),m('me','app','¡Hola Andrea! Ya quedaron listas, el viernes te comparto el informe.','09:20'),m('them',null,'Perfecto, gracias 🙌','09:21')]},
+    c2:{unread:1,messages:[m('them',null,'Buenas tardes, quisiera saber el precio del plan de SEO local para la clínica.','16:40')]},
+    c3:{unread:0,messages:[m('me','crm','Hola Luisa, te comparto la cuenta de cobro CC-003. Quedo atenta.','10:02')]},
+    c4:{unread:2,messages:[m('me','crm','Hola Jorge, te envié la propuesta de contenidos al correo.','11:15'),m('them',null,'La revisé, me gusta.','18:03'),m('them',null,'¿Podemos empezar el próximo mes?','18:04')]},
+    c6:{unread:0,messages:[m('them',null,'¿Qué incluye exactamente lo de aparecer en ChatGPT?','08:30'),m('me','app','Te lo explico en una llamada corta, ¿te sirve hoy a las 3?','08:45')]}
+  };
+  const L=(desc,qty,price)=>({desc,qty,price});
+  const invoices=[
+    {id:'i1',number:'CC-001',contactId:'c1',date:addDays(-35),due:addDays(-20),status:'pagada',items:[L('Auditoría técnica y redirecciones 301',1,1400000),L('Optimización de crawl budget',1,1000000)]},
+    {id:'i2',number:'CC-002',contactId:'c1',date:addDays(-3),due:addDays(12),status:'enviada',items:[L('Plan SEO mensual – mes 2',1,2400000)]},
+    {id:'i3',number:'CC-003',contactId:'c3',date:addDays(-25),due:addDays(-5),status:'vencida',items:[L('Optimización ficha de Google',1,600000),L('Gestión de reseñas',1,300000)]},
+    {id:'i4',number:'CC-004',contactId:'c4',date:today(),due:addDays(15),status:'borrador',items:[L('Artículo de blog optimizado',4,450000)]}
+  ];
+  const automations=[
+    {id:'a1',name:'Respuesta automática a "precio"',trigger:'message_in',cond:'precio',active:true,runs:3,actions:[{type:'send_whatsapp',value:'Hola {nombre}, gracias por escribir. Nuestros planes SEO arrancan desde $900.000 al mes. ¿Agendamos una llamada de 15 minutos?'},{type:'add_tag',value:'interesado'}]},
+    {id:'a2',name:'Bienvenida a nuevo contacto',trigger:'contact_created',cond:'',active:true,runs:6,actions:[{type:'send_whatsapp',value:'Hola {nombre}, soy Valentina, consultora SEO. Gracias por tu interés en posicionar {empresa}. ¿Cuándo podemos hablar?'},{type:'create_task',value:'Llamar a {nombre} ({empresa}) en las próximas 24 h'}]},
+    {id:'a3',name:'Pago recibido → cliente activo',trigger:'invoice_paid',cond:'',active:true,runs:1,actions:[{type:'move_stage',value:'Cliente activo'},{type:'send_whatsapp',value:'¡Gracias {nombre}! Recibimos el pago de la cuenta de cobro {factura} por {valor}.'}]},
+    {id:'a4',name:'Recordatorio de cuenta vencida',trigger:'invoice_overdue',cond:'',active:true,runs:1,actions:[{type:'send_whatsapp',value:'Hola {nombre}, te recuerdo que la cuenta de cobro {factura} por {valor} está vencida. ¿Me confirmas la fecha de pago?'},{type:'create_task',value:'Hacer seguimiento al pago de {factura}'}]},
+    {id:'a5',name:'Seguimiento a propuesta enviada',trigger:'stage_changed',cond:'Propuesta enviada',active:false,runs:0,actions:[{type:'create_task',value:'Hacer seguimiento a la propuesta de {nombre} en 3 días'}]}
+  ];
+  return {contacts:c,deals,convos,invoices,automations,
+    tasks:[{id:'t1',text:'Enviar informe mensual a Megalámparas',done:false,contactId:'c1'},{id:'t2',text:'Llamar a Carlos (Clínica Dental Sonrisa)',done:false,contactId:'c2'}],
+    log:[{t:'08:00',text:'Datos de ejemplo cargados'}],
+    issuer:{name:'Valentina',doc:'C.C. ________',city:'Medellín',pay:'Banco: ________ · Cuenta de ahorros N.º ________'},
+    wa:{connected:true,waba:'1234567890',phoneId:'109876543210',token:'',verify:'mi_token_verificacion',coex:true},
+    apiKey:'crm_'+Math.random().toString(36).slice(2,14)+Math.random().toString(36).slice(2,10),
+    hooks:[{id:'h1',url:'https://hooks.zapier.com/hooks/catch/ejemplo',events:['invoice.paid','contact.created']}],
+    ui:{active:'c2',q:''}};
+}
+let S;
+function load(){try{const r=localStorage.getItem(KEY);S=r?JSON.parse(r):seed()}catch(e){S=seed()}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function commit(){save();render()}
+function toast(t){const el=$('#toast');el.textContent=t;el.classList.remove('hidden');clearTimeout(toast.h);toast.h=setTimeout(()=>el.classList.add('hidden'),2600)}
+function log(text){S.log.unshift({t:hhmm(new Date()),text});S.log=S.log.slice(0,40)}
+
+/* ---------- getters ---------- */
+const getC=id=>S.contacts.find(c=>c.id===id);
+const cname=id=>{const c=getC(id);return c?c.name:'(sin contacto)'};
+const first=id=>{const c=getC(id);return c?c.name.split(' ')[0]:''};
+const invTotal=i=>i.items.reduce((s,l)=>s+(+l.qty||0)*(+l.price||0),0);
+const unreadTotal=()=>Object.values(S.convos).reduce((s,c)=>s+(c.unread||0),0);
+
+/* ---------- messaging + automation engine ---------- */
+function pushMsg(cid,msg){
+  if(!S.convos[cid])S.convos[cid]={unread:0,messages:[]};
+  msg.id=uid('m');msg.time=hhmm(new Date());
+  S.convos[cid].messages.push(msg);
+  if(msg.from==='them'&&S.ui.active!==cid||msg.from==='them'&&location.hash.slice(1)!=='conversaciones')S.convos[cid].unread=(S.convos[cid].unread||0)+1;
+}
+function fill(t,ctx){const c=getC(ctx.contactId);return String(t||'')
+  .replace(/\{nombre\}/g,c?c.name.split(' ')[0]:'').replace(/\{empresa\}/g,c?c.company:'')
+  .replace(/\{factura\}/g,ctx.invoice?ctx.invoice.number:'').replace(/\{valor\}/g,ctx.invoice?fmt(invTotal(ctx.invoice)):'')}
+function emit(trigger,ctx){
+  let n=0;
+  S.automations.filter(a=>a.active&&a.trigger===trigger).forEach(a=>{
+    if(trigger==='message_in'&&a.cond&&!String(ctx.text||'').toLowerCase().includes(a.cond.toLowerCase()))return;
+    if(trigger==='stage_changed'&&a.cond&&a.cond!==ctx.stage)return;
+    a.runs=(a.runs||0)+1;n++;
+    a.actions.forEach(act=>{
+      if(act.type==='send_whatsapp')pushMsg(ctx.contactId,{from:'me',via:'auto',text:fill(act.value,ctx)});
+      if(act.type==='add_tag'){const c=getC(ctx.contactId);if(c&&act.value&&!c.tags.includes(act.value))c.tags.push(act.value)}
+      if(act.type==='move_stage'){S.deals.filter(d=>d.contactId===ctx.contactId&&d.stage!=='Perdido').forEach(d=>d.stage=act.value)}
+      if(act.type==='create_task')S.tasks.unshift({id:uid('t'),text:fill(act.value,ctx),done:false,contactId:ctx.contactId});
+    });
+    log(`Automatización “${a.name}” ejecutada para ${cname(ctx.contactId)}`);
+  });
+  if(n)toast(`⚡ ${n} automatización${n>1?'es':''} ejecutada${n>1?'s':''}`);
+  return n;
+}
+function createContact(data){
+  const c={id:uid('c'),name:data.name,company:data.company||'',phone:data.phone||'',email:data.email||'',service:data.service||SERVICES[0],tags:data.tags||[],value:+data.value||0};
+  S.contacts.unshift(c);
+  S.deals.unshift({id:uid('d'),contactId:c.id,title:c.service,stage:'Prospecto',value:c.value});
+  S.convos[c.id]=S.convos[c.id]||{unread:0,messages:[]};
+  log(`Nuevo contacto: ${c.name}`);
+  emit('contact_created',{contactId:c.id});
+  return c;
+}
+function setStage(id,stage){
+  const d=S.deals.find(x=>x.id===id);if(!d||d.stage===stage)return d;
+  d.stage=stage;log(`“${d.title}” de ${cname(d.contactId)} pasó a ${stage}`);
+  emit('stage_changed',{contactId:d.contactId,stage});return d;
+}
+function payInvoice(id){
+  const i=S.invoices.find(x=>x.id===id);if(!i)return null;
+  i.status='pagada';i.paidAt=today();log(`Cuenta de cobro ${i.number} marcada como pagada`);
+  emit('invoice_paid',{contactId:i.contactId,invoice:i});return i;
+}
+
+/* ---------- modal ---------- */
+let onSave=null;
+function modal(title,body,saveLabel,fn,wide){
+  $('#modalT').textContent=title;$('#modalB').innerHTML=body;
+  const s=$('#modalS');s.textContent=saveLabel||'';s.classList.toggle('hidden',!saveLabel);
+  $('#modalC').textContent=saveLabel?'Cancelar':'Cerrar';
+  $('#modal').classList.toggle('wide',!!wide);onSave=fn;$('#ov').classList.remove('hidden');
+  const f=$('#modalB input,#modalB select,#modalB textarea');if(f)setTimeout(()=>f.focus(),30);
+}
+function close(){$('#ov').classList.add('hidden');onSave=null}
+$('#modalS').onclick=()=>{if(onSave&&onSave()!==false)close()};
+function confirmBox(text,label,fn){modal('Confirmar',`<p>${text}</p>`,label,()=>{fn();commit()})}
+
+/* ---------- views ---------- */
+function top(title,sub,actions=''){return `<div class="top"><div><h1>${title}</h1><p>${sub}</p></div><div class="actions">${actions}</div></div>`}
+
+function vTablero(){
+  const open=S.deals.filter(d=>['Prospecto','Propuesta enviada','Negociación'].includes(d.stage));
+  const paid=S.invoices.filter(i=>i.status==='pagada').reduce((s,i)=>s+invTotal(i),0);
+  const due=S.invoices.filter(i=>['enviada','vencida'].includes(i.status)).reduce((s,i)=>s+invTotal(i),0);
+  const overdue=S.invoices.filter(i=>i.status==='vencida').length;
+  const byStage=STAGES.map(s=>[s,S.deals.filter(d=>d.stage===s).reduce((a,d)=>a+d.value,0),S.deals.filter(d=>d.stage===s).length]);
+  const max=Math.max(1,...byStage.map(b=>b[1]));
+  const pend=S.tasks.filter(t=>!t.done).length;
+  return top('Tablero','Resumen de tu agencia: clientes, ventas, cobros y conversaciones.')+
+  `<div class="grid kpis">
+    <div class="card kpi"><div class="l">Contactos</div><div class="v">${S.contacts.length}</div><div class="s">${S.deals.filter(d=>d.stage==='Cliente activo').length} clientes activos</div></div>
+    <div class="card kpi"><div class="l">Pipeline abierto</div><div class="v">${fmt(open.reduce((s,d)=>s+d.value,0))}</div><div class="s">${open.length} oportunidades</div></div>
+    <div class="card kpi"><div class="l">Cobrado</div><div class="v">${fmt(paid)}</div><div class="s">cuentas pagadas</div></div>
+    <div class="card kpi"><div class="l">Por cobrar</div><div class="v">${fmt(due)}</div><div class="s" style="color:${overdue?'var(--red)':''}">${overdue} vencida${overdue===1?'':'s'}</div></div>
+    <div class="card kpi"><div class="l">Mensajes sin leer</div><div class="v">${unreadTotal()}</div><div class="s">WhatsApp</div></div>
+  </div>
+  <div class="grid two" style="margin-top:16px">
+    <div class="card"><h3>Valor por etapa del pipeline</h3>
+      ${byStage.map(([s,v,n])=>`<div class="bar"><div class="lbl">${s} <span class="muted small">(${n})</span></div><div class="trk"><div class="fill" style="width:${v/max*100}%;${s==='Perdido'?'background:#b9c2cf':''}"></div></div><div class="val">${fmt(v)}</div></div>`).join('')}
+    </div>
+    <div class="card"><h3>Tareas pendientes (${pend})</h3>
+      ${S.tasks.slice(0,8).map(t=>`<label class="task ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="App.toggleTask('${t.id}')"><span>${esc(t.text)}</span></label>`).join('')||'<p class="muted">Sin tareas.</p>'}
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>Actividad reciente</h3>
+    ${S.log.slice(0,8).map(l=>`<div class="log"><time>${l.t}</time><span>${esc(l.text)}</span></div>`).join('')}
+  </div>`;
+}
+
+function contactRows(){
+  const q=(S.ui.q||'').toLowerCase();
+  const list=S.contacts.filter(c=>!q||[c.name,c.company,c.phone,c.email,c.tags.join(' ')].join(' ').toLowerCase().includes(q));
+  if(!list.length)return `<tr><td colspan="7" class="muted" style="text-align:center;padding:30px">No hay contactos que coincidan.</td></tr>`;
+  return list.map(c=>{const d=S.deals.find(x=>x.contactId===c.id);return `<tr>
+    <td><div class="name">${esc(c.name)}</div><div class="muted small">${esc(c.company)}</div></td>
+    <td>${esc(c.phone)}<div class="muted small">${esc(c.email)}</div></td>
+    <td>${esc(c.service)}</td>
+    <td>${d?`<span class="chip">${d.stage}</span>`:''}</td>
+    <td>${c.tags.map(t=>`<span class="chip">${esc(t)}</span>`).join('')}</td>
+    <td style="font-variant-numeric:tabular-nums">${fmt(c.value)}</td>
+    <td style="white-space:nowrap"><button class="btn ghost sm" onclick="App.openChat('${c.id}')">Chat</button> <button class="icon-btn" title="Editar" onclick="App.editContact('${c.id}')">✎</button><button class="icon-btn" title="Eliminar" onclick="App.delContact('${c.id}')">🗑</button></td></tr>`}).join('');
+}
+function vContactos(){
+  return top('Contactos','Tus clientes y prospectos con etiquetas, servicio y valor mensual.',`<input class="f search" placeholder="Buscar nombre, empresa, etiqueta…" value="${esc(S.ui.q)}" oninput="App.search(this.value)"><button class="btn" onclick="App.editContact()">+ Nuevo contacto</button>`)+
+  `<div class="card tbl"><table><thead><tr><th>Nombre</th><th>Contacto</th><th>Servicio</th><th>Etapa</th><th>Etiquetas</th><th>Valor/mes</th><th></th></tr></thead><tbody id="rows">${contactRows()}</tbody></table></div>`;
+}
+
+function vPipeline(){
+  return top('Pipeline de ventas','Arrastra las tarjetas entre etapas (o usa el selector). Cambiar de etapa puede disparar automatizaciones.',`<button class="btn" onclick="App.newDeal()">+ Nueva oportunidad</button>`)+
+  `<div class="board">${STAGES.map(s=>{const ds=S.deals.filter(d=>d.stage===s);return `<div class="col" data-stage="${s}" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="App.drop(event,'${s}')">
+    <div class="colh">${s}<span>${ds.length} · ${fmt(ds.reduce((a,d)=>a+d.value,0))}</span></div>
+    ${ds.map(d=>{const c=getC(d.contactId)||{};return `<div class="deal" draggable="true" ondragstart="event.dataTransfer.setData('text/plain','${d.id}')">
+      <div class="t">${esc(d.title)}</div><div class="c">${esc(c.company||'')} · ${esc(c.name||'')}</div>
+      <div class="b"><strong class="small">${fmt(d.value)}</strong><select onchange="App.stage('${d.id}',this.value)">${STAGES.map(x=>`<option ${x===d.stage?'selected':''}>${x}</option>`).join('')}</select></div></div>`}).join('')}
+  </div>`}).join('')}</div>`;
+}
+
+function vConversaciones(){
+  const ids=S.contacts.map(c=>c.id).filter(id=>S.convos[id]&&S.convos[id].messages.length||id===S.ui.active);
+  if(!getC(S.ui.active))S.ui.active=ids[0];
+  const a=S.ui.active, cv=S.convos[a]||{messages:[]}, c=getC(a);
+  if(cv.unread){cv.unread=0;save()}
+  const coex=S.wa.connected&&S.wa.coex;
+  const viaLbl={app:'📱 App WhatsApp Business',crm:'💻 CRM · Cloud API',auto:'⚡ Automatización'};
+  return top('Conversaciones','Bandeja de WhatsApp. Con coexistencia, lo que respondas desde el celular también aparece aquí.',`<button class="btn ghost" onclick="location.hash='integraciones'">Configurar WhatsApp</button>`)+
+  `<div class="card chat">
+    <div class="clist">${ids.map(id=>{const k=getC(id),v=S.convos[id]||{messages:[]},last=v.messages[v.messages.length-1];return `<div class="citem ${id===a?'on':''}" onclick="App.openChat('${id}')">
+      <div class="av">${initials(k.name)}</div><div class="m"><div class="name">${esc(k.name)}</div><div class="p">${last?esc((last.from==='me'?'Tú: ':'')+last.text):'Sin mensajes'}</div></div>
+      ${v.unread?`<div class="un">${v.unread}</div>`:last?`<div class="muted small">${last.time}</div>`:''}</div>`}).join('')}</div>
+    <div class="cpane">${c?`
+      <div class="chead"><div class="av">${initials(c.name)}</div><div><div class="name">${esc(c.name)} <span class="muted small">· ${esc(c.company)}</span></div><div class="muted small">${esc(c.phone)} ${c.tags.map(t=>`<span class="chip">${esc(t)}</span>`).join('')}</div></div>
+        <div class="coex ${coex?'':'off'}">${coex?'● Coexistencia activa: celular + CRM':'○ WhatsApp sin conectar'}</div></div>
+      <div class="msgs" id="msgs">${cv.messages.map(m=>`<div class="msg ${m.from==='me'?'me':''}"><div class="bub">${esc(m.text)}</div><div class="meta">${m.time}${m.from==='me'&&m.via?` · <span class="via ${m.via}">${viaLbl[m.via]}</span>`:''}</div></div>`).join('')||'<p class="muted" style="text-align:center">Aún no hay mensajes con este contacto.</p>'}</div>
+      <div class="quick">${['Hola {nombre}, ¿cómo estás?','Te comparto el informe SEO del mes.','¿Agendamos una llamada esta semana?','Te envío la cuenta de cobro del mes.'].map(q=>`<button onclick="App.quick(this.dataset.t)" data-t="${esc(q)}">${esc(q.replace('{nombre}',first(a)))}</button>`).join('')}</div>
+      <div class="composer"><input class="f" id="txt" placeholder="Escribe un mensaje… (se envía por la Cloud API)" onkeydown="if(event.key==='Enter')App.send()"><button class="btn" onclick="App.send()">Enviar</button></div>
+      <div class="sim"><span>SIMULADOR</span><input class="f" id="simtxt" style="flex:1;min-width:180px" placeholder="Ej.: ¿Cuál es el precio del plan?"><button class="btn ghost sm" onclick="App.simIn()">Llega mensaje del cliente</button><button class="btn ghost sm" onclick="App.simApp()">Responder desde el celular</button></div>
+    `:'<p class="muted" style="padding:30px">Selecciona una conversación.</p>'}</div>
+  </div>`;
+}
+
+function vFacturas(){
+  const sum=st=>S.invoices.filter(i=>i.status===st);
+  const card=(st,l)=>{const a=sum(st);return `<div class="card kpi"><div class="l"><span class="st ${st}">${l}</span></div><div class="v">${fmt(a.reduce((s,i)=>s+invTotal(i),0))}</div><div class="s">${a.length} cuenta${a.length===1?'':'s'}</div></div>`};
+  const list=[...S.invoices].sort((x,y)=>y.number.localeCompare(x.number));
+  return top('Cuentas de cobro','Crea, envía por WhatsApp y registra el pago de tus cuentas de cobro mensuales.',`<button class="btn ghost" onclick="App.issuer()">Datos del emisor</button><button class="btn ghost" onclick="App.checkOverdue()">Revisar vencimientos</button><button class="btn" onclick="App.editInvoice()">+ Nueva cuenta de cobro</button>`)+
+  `<div class="grid kpis">${card('borrador','Borrador')}${card('enviada','Pendiente')}${card('pagada','Pagada')}${card('vencida','Vencida')}</div>
+  <div class="card tbl" style="margin-top:16px"><table><thead><tr><th>Número</th><th>Cliente</th><th>Emisión</th><th>Vence</th><th>Valor</th><th>Estado</th><th></th></tr></thead><tbody>
+  ${list.map(i=>`<tr><td class="name" style="white-space:nowrap">${i.number}</td><td>${esc(cname(i.contactId))}<div class="muted small">${esc((getC(i.contactId)||{}).company||'')}</div></td><td style="white-space:nowrap">${dfmt(i.date)}</td><td style="white-space:nowrap">${dfmt(i.due)}</td><td style="font-variant-numeric:tabular-nums">${fmt(invTotal(i))}</td>
+    <td><span class="st ${i.status}">${{borrador:'Borrador',enviada:'Pendiente',pagada:'Pagada',vencida:'Vencida'}[i.status]}</span></td>
+    <td style="text-align:right;white-space:nowrap"><button class="btn ghost sm" onclick="App.viewInvoice('${i.id}')">Ver</button>
+      ${i.status!=='pagada'?`<button class="btn ghost sm" onclick="App.sendInvoice('${i.id}')">Enviar por WhatsApp</button> <button class="btn sm" onclick="App.pay('${i.id}')">Marcar pagada</button>`:''}
+      <button class="icon-btn" title="Editar" onclick="App.editInvoice('${i.id}')">✎</button></td></tr>`).join('')||'<tr><td colspan="7" class="muted" style="text-align:center;padding:30px">Todavía no hay cuentas de cobro.</td></tr>'}
+  </tbody></table></div>`;
+}
+
+function vAutomatizaciones(){
+  return top('Automatizaciones','Flujos “cuando pase X → haz Y”. Se ejecutan de verdad en este prototipo: prueba desde Conversaciones, Pipeline o Cuentas de cobro.',`<button class="btn" onclick="App.editAuto()">+ Nueva automatización</button>`)+
+  `<div class="grid">${S.automations.map(a=>`<div class="card auto">
+    <label class="sw" title="Activar / desactivar"><input type="checkbox" ${a.active?'checked':''} onchange="App.toggleAuto('${a.id}')"><span></span></label>
+    <div class="body"><div class="name">${esc(a.name)}</div>
+      <div class="flow"><span class="node trg">Cuando: ${TRIG[a.trigger]}${a.cond?` · “${esc(a.cond)}”`:''}</span>
+      ${a.actions.map(x=>`<span class="arrow">→</span><span class="node"><strong>${ACT[x.type]}</strong>${x.value?': '+esc(x.value.length>60?x.value.slice(0,60)+'…':x.value):''}</span>`).join('')}</div>
+      <div class="muted small" style="margin-top:8px">Ejecutada ${a.runs||0} ${a.runs===1?'vez':'veces'} · ${a.active?'Activa':'Pausada'}</div></div>
+    <div style="white-space:nowrap"><button class="icon-btn" onclick="App.editAuto('${a.id}')">✎</button><button class="icon-btn" onclick="App.delAuto('${a.id}')">🗑</button></div>
+  </div>`).join('')}</div>
+  <p class="muted small" style="margin-top:14px">Variables disponibles en los mensajes: <code>{nombre}</code> <code>{empresa}</code> <code>{factura}</code> <code>{valor}</code></p>`;
+}
+
+function vIntegraciones(){
+  const w=S.wa, base='https://api.tu-crm.com';
+  return top('WhatsApp y API','Conecta tu número con coexistencia y expón tu propia API para integrar otras herramientas.')+
+  `<div class="grid two">
+   <div class="card"><h3>WhatsApp Cloud API · Coexistencia</h3>
+    <p class="muted small" style="margin-top:-6px">Con coexistencia sigues usando la app WhatsApp Business en tu celular con el mismo número, y el CRM envía y recibe por la API. Los mensajes se sincronizan en ambos lados.</p>
+    <ol class="steps">
+      <li class="${w.connected?'ok':''}"><strong>Conectar con Meta</strong> mediante el registro integrado (Embedded Signup) con la opción de usar un número existente de WhatsApp Business.</li>
+      <li class="${w.connected?'ok':''}"><strong>Confirmar desde el celular</strong>: la app WhatsApp Business muestra un código QR / aviso para autorizar la conexión.</li>
+      <li class="${w.connected&&w.coex?'ok':''}"><strong>Sincronizar</strong> contactos e historial reciente de chats al CRM.</li>
+      <li class="${w.connected?'ok':''}"><strong>Webhooks suscritos</strong>: <code>messages</code>, <code>smb_message_echoes</code> (lo que respondes desde el celular), <code>smb_app_state_sync</code> (contactos) y <code>history</code>.</li>
+    </ol>
+    <div class="row2"><div><label class="lb">WABA ID</label><input class="f" id="w_waba" value="${esc(w.waba)}"></div><div><label class="lb">Phone Number ID</label><input class="f" id="w_phone" value="${esc(w.phoneId)}"></div></div>
+    <label class="lb">Token de acceso (System User)</label><input class="f" id="w_token" type="password" placeholder="Se guarda en el servidor, nunca en el navegador" value="${esc(w.token)}">
+    <div class="row2"><div><label class="lb">Verify token del webhook</label><input class="f" id="w_verify" value="${esc(w.verify)}"></div><div><label class="lb">URL del webhook (para Meta)</label><input class="f" readonly value="${base}/webhooks/whatsapp"></div></div>
+    <label class="task" style="border:0;margin-top:8px"><input type="checkbox" id="w_coex" ${w.coex?'checked':''}><span>Activar modo coexistencia (app del celular + API)</span></label>
+    <div class="actions" style="margin-top:10px"><button class="btn" onclick="App.saveWa()">Guardar</button><button class="btn ghost" onclick="App.toggleWa()">${w.connected?'Desconectar (simulado)':'Conectar con Meta (simulado)'}</button></div>
+   </div>
+   <div class="grid" style="align-content:start">
+    <div class="card"><h3>API REST del CRM</h3>
+      <label class="lb" style="margin-top:0">URL base</label><input class="f" readonly value="${base}/api/v1">
+      <label class="lb">API key (header <code>Authorization: Bearer …</code>)</label>
+      <div style="display:flex;gap:8px"><input class="f" readonly id="apikey" value="${esc(S.apiKey)}"><button class="btn ghost sm" onclick="App.copy(document.getElementById('apikey').value)">Copiar</button><button class="btn ghost sm" onclick="App.rotateKey()">Regenerar</button></div>
+      <table style="margin-top:14px"><tbody>
+      ${[['GET','/contacts','Listar contactos'],['POST','/contacts','Crear contacto'],['PATCH','/contacts/{id}','Actualizar contacto'],['GET','/deals','Listar oportunidades'],['PATCH','/deals/{id}','Cambiar etapa'],['POST','/messages','Enviar WhatsApp'],['GET','/invoices','Listar cuentas de cobro'],['POST','/invoices/{id}/pay','Registrar pago']].map(r=>`<tr><td style="padding:6px 0"><span class="mt ${r[0]}">${r[0]}</span></td><td style="padding:6px 8px"><code>${r[1]}</code></td><td class="muted small" style="padding:6px 0">${r[2]}</td></tr>`).join('')}
+      </tbody></table>
+      <button class="btn blue" style="margin-top:12px" onclick="location.hash='api'">Probar la API aquí →</button>
+    </div>
+    <div class="card"><h3>Webhooks salientes</h3>
+      <p class="muted small" style="margin-top:-6px">El CRM avisa a otras apps (Zapier, Make, n8n, tu web) cuando algo pasa.</p>
+      ${S.hooks.map(h=>`<div class="log" style="align-items:center"><span style="flex:1"><code>${esc(h.url)}</code><br>${h.events.map(e=>`<span class="chip">${e}</span>`).join('')}</span><button class="icon-btn" onclick="App.delHook('${h.id}')">🗑</button></div>`).join('')||'<p class="muted small">Sin webhooks.</p>'}
+      <button class="btn ghost sm" style="margin-top:10px" onclick="App.addHook()">+ Agregar webhook</button>
+    </div>
+   </div>
+  </div>`;
+}
+
+/* ---------- API simulator ---------- */
+function presets(){
+  const c=S.contacts[0]||{id:'c1',phone:'+57 300 000 0000'},d=S.deals[0]||{id:'d1'},i=S.invoices.find(x=>x.status!=='pagada')||S.invoices[0]||{id:'i1'};
+  return [
+    ['GET','/api/v1/contacts',null,'Listar contactos'],
+    ['POST','/api/v1/contacts',{name:'Mariana López',company:'Spa Bienestar',phone:'+57 300 555 0199',email:'mariana@ejemplo.co',service:'SEO local',tags:['lead','web']},'Crear contacto (dispara “Bienvenida”)'],
+    ['PATCH',`/api/v1/contacts/${c.id}`,{tags:['cliente','vip']},'Actualizar etiquetas'],
+    ['GET','/api/v1/deals',null,'Listar oportunidades'],
+    ['PATCH',`/api/v1/deals/${d.id}`,{stage:'Negociación'},'Cambiar etapa'],
+    ['POST','/api/v1/messages',{contactId:c.id,text:'Hola, te escribo desde la API del CRM.'},'Enviar WhatsApp'],
+    ['GET','/api/v1/invoices',null,'Listar cuentas de cobro'],
+    ['POST',`/api/v1/invoices/${i.id}/pay`,null,'Registrar pago'],
+    ['POST','/webhooks/whatsapp',{object:'whatsapp_business_account',entry:[{id:S.wa.waba,changes:[{field:'messages',value:{messaging_product:'whatsapp',metadata:{phone_number_id:S.wa.phoneId},contacts:[{profile:{name:'Carlos Restrepo'},wa_id:'573005550102'}],messages:[{from:'573005550102',type:'text',text:{body:'Hola, ¿qué precio tiene el SEO local?'}}]}}]}]},'Webhook entrante de Meta (mensaje)'],
+    ['POST','/webhooks/whatsapp',{object:'whatsapp_business_account',entry:[{id:S.wa.waba,changes:[{field:'smb_message_echoes',value:{messaging_product:'whatsapp',metadata:{phone_number_id:S.wa.phoneId},message_echoes:[{from:S.wa.phoneId,to:'573005550102',type:'text',text:{body:'Te respondo desde el celular 📱'}}]}}]}]},'Webhook de coexistencia (eco desde la app)']
+  ];
+}
+function apiCall(method,path,body){
+  const r=(status,data)=>({status,data});
+  const findByPhone=p=>S.contacts.find(c=>digits(c.phone)&&digits(c.phone).endsWith(digits(p).slice(-10)));
+  let m;
+  if(path==='/api/v1/contacts'){
+    if(method==='GET')return r(200,{data:S.contacts,total:S.contacts.length});
+    if(method==='POST'){if(!body||!body.name)return r(422,{error:'El campo "name" es obligatorio'});const c=createContact(body);return r(201,{data:c})}
+  }
+  if((m=path.match(/^\/api\/v1\/contacts\/([\w-]+)$/))){const c=getC(m[1]);if(!c)return r(404,{error:'Contacto no encontrado'});
+    if(method==='GET')return r(200,{data:c});
+    if(method==='PATCH'){['name','company','phone','email','service','tags','value'].forEach(k=>{if(body&&body[k]!==undefined)c[k]=body[k]});log(`API: contacto ${c.name} actualizado`);return r(200,{data:c})}}
+  if(path==='/api/v1/deals'&&method==='GET')return r(200,{data:S.deals,total:S.deals.length});
+  if((m=path.match(/^\/api\/v1\/deals\/([\w-]+)$/))&&method==='PATCH'){const d=S.deals.find(x=>x.id===m[1]);if(!d)return r(404,{error:'Oportunidad no encontrada'});
+    if(body&&body.stage){if(!STAGES.includes(body.stage))return r(422,{error:'Etapa inválida',etapas:STAGES});setStage(d.id,body.stage)}
+    if(body&&body.value!==undefined)d.value=+body.value;return r(200,{data:d})}
+  if(path==='/api/v1/messages'&&method==='POST'){
+    if(!S.wa.connected)return r(409,{error:'WhatsApp no está conectado'});
+    const c=body&&(body.contactId?getC(body.contactId):findByPhone(body.to));
+    if(!c)return r(404,{error:'Contacto no encontrado (usa contactId o to)'});if(!body.text)return r(422,{error:'"text" es obligatorio'});
+    pushMsg(c.id,{from:'me',via:'crm',text:body.text});log(`API: WhatsApp enviado a ${c.name}`);
+    return r(201,{messaging_product:'whatsapp',contacts:[{wa_id:digits(c.phone)}],messages:[{id:'wamid.'+uid('')}]})}
+  if(path==='/api/v1/invoices'){
+    if(method==='GET')return r(200,{data:S.invoices.map(i=>({...i,total:invTotal(i)}))});
+    if(method==='POST'){if(!body||!getC(body.contactId))return r(422,{error:'contactId válido es obligatorio'});const i=newInvoice(body);return r(201,{data:i})}}
+  if((m=path.match(/^\/api\/v1\/invoices\/([\w-]+)\/pay$/))&&method==='POST'){const i=S.invoices.find(x=>x.id===m[1]);if(!i)return r(404,{error:'Cuenta de cobro no encontrada'});
+    if(i.status==='pagada')return r(409,{error:'Ya estaba pagada'});payInvoice(i.id);return r(200,{data:{...i,total:invTotal(i)}})}
+  if(path==='/webhooks/whatsapp'&&method==='POST'){
+    const ch=body&&body.entry&&body.entry[0]&&body.entry[0].changes&&body.entry[0].changes[0];if(!ch)return r(400,{error:'Payload inválido'});
+    const v=ch.value||{};
+    if(ch.field==='messages'&&v.messages){v.messages.forEach(msg=>{let c=findByPhone(msg.from);
+      if(!c){const nm=(v.contacts&&v.contacts[0]&&v.contacts[0].profile&&v.contacts[0].profile.name)||('+'+msg.from);c=createContact({name:nm,phone:'+'+msg.from,tags:['whatsapp']})}
+      const text=(msg.text&&msg.text.body)||'['+msg.type+']';pushMsg(c.id,{from:'them',text});log(`WhatsApp entrante de ${c.name}`);emit('message_in',{contactId:c.id,text})});return r(200,{ok:true})}
+    if(ch.field==='smb_message_echoes'&&v.message_echoes){v.message_echoes.forEach(msg=>{const c=findByPhone(msg.to);if(c){pushMsg(c.id,{from:'me',via:'app',text:(msg.text&&msg.text.body)||''});log(`Eco de coexistencia: respuesta desde el celular a ${c.name}`)}});return r(200,{ok:true})}
+    return r(200,{ok:true,ignored:ch.field})}
+  if(path==='/webhooks/whatsapp'&&method==='GET')return r(200,'hub.challenge (verificación de Meta)');
+  return r(404,{error:`Ruta no encontrada: ${method} ${path}`});
+}
+function vApi(){
+  const P=presets(),sel=S.ui.preset||0,p=P[sel]||P[0];
+  return top('Probar API','Ejecuta peticiones contra el CRM. Los cambios se reflejan en los demás módulos y disparan automatizaciones.')+
+  `<div class="grid two">
+   <div class="card">
+    <label class="lb" style="margin-top:0">Ejemplo</label>
+    <select class="f" onchange="App.preset(this.value)">${P.map((x,i)=>`<option value="${i}" ${i==sel?'selected':''}>${x[0]} ${x[1].replace('/api/v1','')} — ${x[3]}</option>`).join('')}</select>
+    <div style="display:flex;gap:8px;margin-top:12px"><select class="f" id="am" style="width:110px">${['GET','POST','PATCH'].map(x=>`<option ${x===p[0]?'selected':''}>${x}</option>`).join('')}</select><input class="f" id="ap" value="${esc(p[1])}"></div>
+    <label class="lb">Body (JSON)</label>
+    <textarea class="f" id="ab" rows="12" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px">${p[2]?esc(JSON.stringify(p[2],null,2)):''}</textarea>
+    <div class="actions" style="margin-top:12px"><button class="btn blue" onclick="App.run()">Ejecutar</button><button class="btn ghost" onclick="App.curl()">Copiar como cURL</button></div>
+   </div>
+   <div class="card"><h3>Respuesta</h3><pre id="ares">Pulsa “Ejecutar” para ver la respuesta.</pre>
+    <div class="note" style="margin-top:14px">En producción estas rutas viven en tu servidor. <code>/webhooks/whatsapp</code> es la URL que registras en Meta: recibe los mensajes de clientes (<code>messages</code>) y, con coexistencia, también las respuestas que das desde el celular (<code>smb_message_echoes</code>).</div>
+   </div>
+  </div>`;
+}
+
+/* ---------- forms ---------- */
+function newInvoice(b){
+  const n=Math.max(0,...S.invoices.map(i=>+String(i.number).replace(/\D/g,'')||0))+1;
+  const i={id:uid('i'),number:'CC-'+String(n).padStart(3,'0'),contactId:b.contactId,date:b.date||today(),due:b.due||addDays(15),status:b.status||'borrador',items:b.items&&b.items.length?b.items:[{desc:'Servicios SEO del mes',qty:1,price:0}]};
+  S.invoices.push(i);log(`Cuenta de cobro ${i.number} creada para ${cname(i.contactId)}`);return i;
+}
+function lineRow(l){l=l||{desc:'',qty:1,price:0};return `<div class="line"><input class="ld" placeholder="Actividad realizada" value="${esc(l.desc)}"><input class="lq" type="number" min="1" value="${l.qty}"><input class="lp" type="number" min="0" step="1000" value="${l.price}"><button class="icon-btn" type="button" onclick="this.parentNode.remove();App.recalc()">×</button></div>`}
+function docHtml(i){
+  const c=getC(i.contactId)||{},is=S.issuer,t=invTotal(i);
+  return `<div class="doc" id="docp">
+   <h2>CUENTA DE COBRO N.º ${i.number}</h2><div class="c">${esc(is.city)}, ${dfmt(i.date)}</div>
+   <p><strong>${esc(c.company||c.name)}</strong><br><span class="muted">Atención: ${esc(c.name)}</span></p>
+   <p style="margin:16px 0 4px">DEBE A:</p><p style="margin:0"><strong>${esc(is.name)}</strong><br>${esc(is.doc)}</p>
+   <p style="margin:16px 0">La suma de <strong>${fmt(t)}</strong> por concepto de las siguientes actividades:</p>
+   <table><thead><tr><th>Actividad</th><th style="text-align:right">Cant.</th><th style="text-align:right">Valor unit.</th><th style="text-align:right">Subtotal</th></tr></thead><tbody>
+   ${i.items.map(l=>`<tr><td>${esc(l.desc)}</td><td style="text-align:right">${l.qty}</td><td style="text-align:right">${fmt(l.price)}</td><td style="text-align:right">${fmt(l.qty*l.price)}</td></tr>`).join('')}
+   <tr><td colspan="3" style="text-align:right"><strong>TOTAL</strong></td><td style="text-align:right"><strong>${fmt(t)}</strong></td></tr></tbody></table>
+   <p class="small" style="margin-top:16px">Fecha límite de pago: ${dfmt(i.due)}<br>${esc(is.pay)}</p>
+   <p style="margin-top:34px">_____________________________<br>${esc(is.name)}<br><span class="muted small">${esc(is.doc)}</span></p></div>`;
+}
+function docText(i){const c=getC(i.contactId)||{},is=S.issuer;return `CUENTA DE COBRO N.º ${i.number}\n${is.city}, ${dfmt(i.date)}\n\n${c.company||c.name}\n\nDEBE A:\n${is.name}\n${is.doc}\n\nLa suma de ${fmt(invTotal(i))} por concepto de:\n${i.items.map(l=>`- ${l.desc} (x${l.qty}): ${fmt(l.qty*l.price)}`).join('\n')}\n\nTOTAL: ${fmt(invTotal(i))}\nFecha límite de pago: ${dfmt(i.due)}\n${is.pay}\n\n${is.name}\n${is.doc}`}
+
+/* ---------- render ---------- */
+const VIEWS={tablero:vTablero,contactos:vContactos,pipeline:vPipeline,conversaciones:vConversaciones,facturas:vFacturas,automatizaciones:vAutomatizaciones,integraciones:vIntegraciones,api:vApi};
+function view(){const h=location.hash.slice(1);return VIEWS[h]?h:'tablero'}
+function render(){
+  const v=view(),u=unreadTotal();
+  $('#nav').innerHTML=NAV.map(([k,l])=>k==='sep'?`<div class="sep">${l}</div>`:`<a href="#${k}" class="${k===v?'on':''}">${icon(k)}<span>${l}</span>${k==='conversaciones'&&u?`<span class="nbadge">${u}</span>`:''}</a>`).join('');
+  $('#main').innerHTML=VIEWS[v]();
+  const ms=$('#msgs');if(ms)ms.scrollTop=ms.scrollHeight;
+  if(v==='conversaciones'){const n=unreadTotal();if(n!==u)$('#nav').innerHTML=NAV.map(([k,l])=>k==='sep'?`<div class="sep">${l}</div>`:`<a href="#${k}" class="${k===v?'on':''}">${icon(k)}<span>${l}</span>${k==='conversaciones'&&n?`<span class="nbadge">${n}</span>`:''}</a>`).join('')}
+}
+
+/* ---------- public actions ---------- */
+window.App={
+  close,
+  reset(){confirmBox('Se borrarán tus cambios y se cargarán de nuevo los datos de ejemplo.','Restablecer',()=>{S=seed();toast('Datos restablecidos')})},
+  toggleTask(id){const t=S.tasks.find(x=>x.id===id);if(t){t.done=!t.done;commit()}},
+  search(q){S.ui.q=q;save();const r=$('#rows');if(r)r.innerHTML=contactRows()},
+  editContact(id){
+    const c=id?getC(id):{name:'',company:'',phone:'',email:'',service:SERVICES[0],tags:[],value:''};
+    modal(id?'Editar contacto':'Nuevo contacto',`
+      <div class="row2"><div><label class="lb">Nombre *</label><input class="f" id="f_name" value="${esc(c.name)}"></div><div><label class="lb">Empresa</label><input class="f" id="f_co" value="${esc(c.company)}"></div></div>
+      <div class="row2"><div><label class="lb">WhatsApp</label><input class="f" id="f_ph" placeholder="+57 300 000 0000" value="${esc(c.phone)}"></div><div><label class="lb">Correo</label><input class="f" id="f_em" value="${esc(c.email)}"></div></div>
+      <div class="row2"><div><label class="lb">Servicio</label><select class="f" id="f_sv">${SERVICES.map(s=>`<option ${s===c.service?'selected':''}>${s}</option>`).join('')}</select></div><div><label class="lb">Valor mensual (COP)</label><input class="f" id="f_val" type="number" step="50000" value="${c.value}"></div></div>
+      <label class="lb">Etiquetas (separadas por coma)</label><input class="f" id="f_tags" value="${esc(c.tags.join(', '))}">
+      ${id?'':'<p class="muted small" style="margin-top:12px">Al crear el contacto se abre una oportunidad en “Prospecto” y se dispara la automatización de bienvenida (si está activa).</p>'}`,
+      id?'Guardar':'Crear contacto',()=>{
+        const d={name:$('#f_name').value.trim(),company:$('#f_co').value.trim(),phone:$('#f_ph').value.trim(),email:$('#f_em').value.trim(),service:$('#f_sv').value,value:+$('#f_val').value||0,tags:$('#f_tags').value.split(',').map(s=>s.trim()).filter(Boolean)};
+        if(!d.name){$('#f_name').focus();toast('El nombre es obligatorio');return false}
+        if(id){Object.assign(c,d);log(`Contacto actualizado: ${c.name}`)}else createContact(d);
+        commit();
+      });
+  },
+  delContact(id){const c=getC(id);confirmBox(`¿Eliminar a <strong>${esc(c.name)}</strong> y sus oportunidades y conversaciones?`,'Eliminar',()=>{S.contacts=S.contacts.filter(x=>x.id!==id);S.deals=S.deals.filter(d=>d.contactId!==id);delete S.convos[id];log(`Contacto eliminado: ${c.name}`)})},
+  openChat(id){S.ui.active=id;if(S.convos[id])S.convos[id].unread=0;save();if(location.hash!=='#conversaciones')location.hash='conversaciones';else render()},
+  newDeal(){
+    modal('Nueva oportunidad',`<label class="lb">Contacto</label><select class="f" id="nd_c">${S.contacts.map(c=>`<option value="${c.id}">${esc(c.name)} — ${esc(c.company)}</option>`).join('')}</select>
+      <label class="lb">Título</label><input class="f" id="nd_t" placeholder="Ej.: SEO local 6 meses">
+      <div class="row2"><div><label class="lb">Valor (COP)</label><input class="f" id="nd_v" type="number" step="50000"></div><div><label class="lb">Etapa</label><select class="f" id="nd_s">${STAGES.map(s=>`<option>${s}</option>`).join('')}</select></div></div>`,
+      'Crear',()=>{const t=$('#nd_t').value.trim();if(!t){toast('Escribe un título');return false}
+        S.deals.push({id:uid('d'),contactId:$('#nd_c').value,title:t,value:+$('#nd_v').value||0,stage:$('#nd_s').value});log(`Nueva oportunidad: ${t}`);commit()});
+  },
+  drop(e,stage){e.preventDefault();const id=e.dataTransfer.getData('text/plain');setStage(id,stage);commit()},
+  stage(id,s){setStage(id,s);commit()},
+  quick(t){const i=$('#txt');i.value=fill(t,{contactId:S.ui.active});i.focus()},
+  send(){const i=$('#txt'),t=i.value.trim();if(!t)return;if(!S.wa.connected){toast('Conecta WhatsApp primero');return}
+    pushMsg(S.ui.active,{from:'me',via:'crm',text:t});log(`WhatsApp enviado a ${cname(S.ui.active)} desde el CRM`);commit();setTimeout(()=>$('#txt')&&$('#txt').focus(),0)},
+  simIn(){const i=$('#simtxt'),t=i.value.trim()||'Hola, ¿cuál es el precio del plan?';const cid=S.ui.active;
+    pushMsg(cid,{from:'them',text:t});S.convos[cid].unread=0;log(`WhatsApp entrante de ${cname(cid)}`);emit('message_in',{contactId:cid,text:t});commit()},
+  simApp(){const i=$('#simtxt'),t=i.value.trim()||'Te respondo desde el celular 👍';
+    if(!(S.wa.connected&&S.wa.coex)){toast('Activa la coexistencia en “WhatsApp y API”');return}
+    pushMsg(S.ui.active,{from:'me',via:'app',text:t});log(`Coexistencia: respuesta desde el celular sincronizada (${cname(S.ui.active)})`);commit();toast('Mensaje del celular sincronizado al CRM')},
+  issuer(){const is=S.issuer;modal('Datos del emisor',`<p class="muted small">Aparecen en tus cuentas de cobro.</p>
+    <label class="lb">Nombre completo</label><input class="f" id="is_n" value="${esc(is.name)}">
+    <div class="row2"><div><label class="lb">Documento (C.C. / NIT)</label><input class="f" id="is_d" value="${esc(is.doc)}"></div><div><label class="lb">Ciudad</label><input class="f" id="is_c" value="${esc(is.city)}"></div></div>
+    <label class="lb">Datos de pago</label><textarea class="f" id="is_p" rows="2">${esc(is.pay)}</textarea>`,'Guardar',()=>{Object.assign(is,{name:$('#is_n').value,doc:$('#is_d').value,city:$('#is_c').value,pay:$('#is_p').value});commit();toast('Datos guardados')})},
+  editInvoice(id){
+    const i=id?S.invoices.find(x=>x.id===id):{contactId:S.contacts[0]&&S.contacts[0].id,date:today(),due:addDays(15),items:[{desc:'',qty:1,price:0}],status:'borrador'};
+    if(!S.contacts.length){toast('Primero crea un contacto');return}
+    modal(id?`Editar ${i.number}`:'Nueva cuenta de cobro',`
+      <label class="lb">Cliente</label><select class="f" id="iv_c">${S.contacts.map(c=>`<option value="${c.id}" ${c.id===i.contactId?'selected':''}>${esc(c.name)} — ${esc(c.company)}</option>`).join('')}</select>
+      <div class="row2"><div><label class="lb">Fecha de emisión</label><input class="f" type="date" id="iv_d" value="${i.date}"></div><div><label class="lb">Fecha límite de pago</label><input class="f" type="date" id="iv_u" value="${i.due}"></div></div>
+      <label class="lb">Actividades realizadas</label>
+      <div class="line muted small" style="margin-bottom:4px"><span>Concepto</span><span>Cant.</span><span>Valor unitario</span><span></span></div>
+      <div id="lines" oninput="App.recalc()">${i.items.map(lineRow).join('')}</div>
+      <button class="btn ghost sm" type="button" onclick="document.getElementById('lines').insertAdjacentHTML('beforeend',App._line())">+ Agregar actividad</button>
+      <p style="text-align:right;font-size:16px;margin:12px 0 0">Total: <strong id="invTotal">${fmt(invTotal(i))}</strong></p>`,
+      id?'Guardar':'Crear borrador',()=>{
+        const items=[...document.querySelectorAll('#lines .line')].map(r=>({desc:r.querySelector('.ld').value.trim(),qty:+r.querySelector('.lq').value||1,price:+r.querySelector('.lp').value||0})).filter(l=>l.desc);
+        if(!items.length){toast('Agrega al menos una actividad');return false}
+        const d={contactId:$('#iv_c').value,date:$('#iv_d').value||today(),due:$('#iv_u').value||addDays(15),items};
+        if(id){Object.assign(i,d);log(`Cuenta de cobro ${i.number} editada`)}else newInvoice(d);
+        commit();
+      },true);
+  },
+  _line:()=>lineRow(),
+  recalc(){let t=0;document.querySelectorAll('#lines .line').forEach(r=>t+=(+r.querySelector('.lq').value||0)*(+r.querySelector('.lp').value||0));const el=$('#invTotal');if(el)el.textContent=fmt(t)},
+  viewInvoice(id){const i=S.invoices.find(x=>x.id===id);modal(`Cuenta de cobro ${i.number}`,docHtml(i)+`<div class="actions" style="margin-top:12px"><button class="btn ghost sm" onclick="App.copy(App._txt('${i.id}'))">Copiar texto</button></div>`,null,null,true)},
+  _txt:id=>docText(S.invoices.find(x=>x.id===id)),
+  sendInvoice(id){const i=S.invoices.find(x=>x.id===id);if(!S.wa.connected){toast('Conecta WhatsApp primero');return}
+    pushMsg(i.contactId,{from:'me',via:'crm',text:`Hola ${first(i.contactId)}, te comparto la cuenta de cobro ${i.number} por ${fmt(invTotal(i))}, con fecha límite de pago ${dfmt(i.due)}.\n\n${S.issuer.pay}`});
+    if(i.status==='borrador')i.status='enviada';log(`Cuenta de cobro ${i.number} enviada por WhatsApp a ${cname(i.contactId)}`);commit();toast(`${i.number} enviada por WhatsApp`)},
+  pay(id){payInvoice(id);commit()},
+  checkOverdue(){const t=today();let n=0;S.invoices.filter(i=>i.status==='enviada'&&i.due<t).forEach(i=>{i.status='vencida';n++;log(`Cuenta de cobro ${i.number} vencida`);emit('invoice_overdue',{contactId:i.contactId,invoice:i})});
+    commit();if(!n)toast('No hay cuentas pendientes vencidas')},
+  toggleAuto(id){const a=S.automations.find(x=>x.id===id);a.active=!a.active;log(`Automatización “${a.name}” ${a.active?'activada':'pausada'}`);commit()},
+  delAuto(id){const a=S.automations.find(x=>x.id===id);confirmBox(`¿Eliminar la automatización <strong>${esc(a.name)}</strong>?`,'Eliminar',()=>{S.automations=S.automations.filter(x=>x.id!==id)})},
+  editAuto(id){
+    const a=id?S.automations.find(x=>x.id===id):{name:'',trigger:'message_in',cond:'',active:true,actions:[{type:'send_whatsapp',value:''}]};
+    const acts=[0,1,2].map(k=>a.actions[k]||{type:'',value:''});
+    modal(id?'Editar automatización':'Nueva automatización',`
+      <label class="lb">Nombre</label><input class="f" id="au_n" value="${esc(a.name)}" placeholder="Ej.: Responder a quien pregunte por auditoría">
+      <div class="row2"><div><label class="lb">Cuando…</label><select class="f" id="au_t">${Object.entries(TRIG).map(([k,v])=>`<option value="${k}" ${k===a.trigger?'selected':''}>${v}</option>`).join('')}</select></div>
+      <div><label class="lb">Condición (opcional)</label><input class="f" id="au_c" list="stg" value="${esc(a.cond)}" placeholder="Palabra clave o etapa"><datalist id="stg">${STAGES.map(s=>`<option>${s}</option>`).join('')}</datalist></div></div>
+      <p class="muted small" style="margin:6px 0 0">Para mensajes: el texto debe contener la palabra. Para cambio de etapa: nombre exacto de la etapa.</p>
+      <label class="lb">Entonces…</label>
+      ${acts.map((x,k)=>`<div style="display:grid;grid-template-columns:170px 1fr;gap:8px;margin-bottom:8px"><select class="f au_at"><option value="">— Sin acción —</option>${Object.entries(ACT).map(([kk,v])=>`<option value="${kk}" ${kk===x.type?'selected':''}>${v}</option>`).join('')}</select><input class="f au_av" value="${esc(x.value)}" placeholder="Mensaje, etiqueta, etapa o tarea"></div>`).join('')}
+      <p class="muted small">Variables: {nombre} {empresa} {factura} {valor}</p>`,
+      'Guardar',()=>{
+        const name=$('#au_n').value.trim();if(!name){toast('Ponle un nombre');return false}
+        const types=[...document.querySelectorAll('.au_at')].map(s=>s.value),vals=[...document.querySelectorAll('.au_av')].map(s=>s.value.trim());
+        const actions=types.map((t,k)=>({type:t,value:vals[k]})).filter(x=>x.type);
+        if(!actions.length){toast('Agrega al menos una acción');return false}
+        const d={name,trigger:$('#au_t').value,cond:$('#au_c').value.trim(),actions};
+        if(id)Object.assign(a,d);else S.automations.push({id:uid('a'),active:true,runs:0,...d});
+        log(`Automatización “${name}” guardada`);commit();
+      },true);
+  },
+  saveWa(){Object.assign(S.wa,{waba:$('#w_waba').value.trim(),phoneId:$('#w_phone').value.trim(),token:'',verify:$('#w_verify').value.trim(),coex:$('#w_coex').checked});log('Configuración de WhatsApp guardada');commit();toast('Guardado. (El token no se almacena en el prototipo)')},
+  toggleWa(){S.wa.connected=!S.wa.connected;log(S.wa.connected?'WhatsApp conectado con Meta':'WhatsApp desconectado');commit()},
+  rotateKey(){S.apiKey='crm_'+Math.random().toString(36).slice(2,14)+Math.random().toString(36).slice(2,10);log('API key regenerada');commit();toast('Nueva API key generada')},
+  addHook(){modal('Nuevo webhook saliente',`<label class="lb">URL de destino</label><input class="f" id="hk_u" placeholder="https://…">
+    <label class="lb">Eventos</label>${['contact.created','message.received','deal.stage_changed','invoice.paid','invoice.overdue'].map(e=>`<label class="task" style="border:0;padding:3px 0"><input type="checkbox" class="hk_e" value="${e}"><span><code>${e}</code></span></label>`).join('')}`,
+    'Agregar',()=>{const u=$('#hk_u').value.trim(),ev=[...document.querySelectorAll('.hk_e:checked')].map(x=>x.value);if(!/^https?:\/\//.test(u)||!ev.length){toast('Escribe una URL válida y elige eventos');return false}S.hooks.push({id:uid('h'),url:u,events:ev});commit()})},
+  delHook(id){S.hooks=S.hooks.filter(h=>h.id!==id);commit()},
+  preset(i){S.ui.preset=+i;save();render()},
+  run(){
+    const m=$('#am').value,p=$('#ap').value.trim(),raw=$('#ab').value.trim();let body=null;
+    if(raw&&m!=='GET'){try{body=JSON.parse(raw)}catch(e){$('#ares').textContent='Error: el body no es un JSON válido.\n'+e.message;return}}
+    const res=apiCall(m,p,body);save();
+    const out=`HTTP ${res.status}\n\n`+(typeof res.data==='string'?res.data:JSON.stringify(res.data,null,2));
+    render();$('#ares').textContent=out;$('#ab').value=raw;$('#ap').value=p;$('#am').value=m;
+  },
+  curl(){const m=$('#am').value,p=$('#ap').value.trim(),b=$('#ab').value.trim();
+    App.copy(`curl -X ${m} "https://api.tu-crm.com${p.replace('/api/v1','/api/v1')}" \\\n  -H "Authorization: Bearer ${S.apiKey}" \\\n  -H "Content-Type: application/json"`+(b&&m!=='GET'?` \\\n  -d '${b.replace(/\s*\n\s*/g,' ')}'`:''))},
+  copy(t){try{navigator.clipboard.writeText(t).then(()=>toast('Copiado'),()=>toast('No se pudo copiar'))}catch(e){toast('No se pudo copiar')}}
+};
+
+load();
+window.addEventListener('hashchange',render);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
+render();
+})();
+</script>
+</body>
+</html>

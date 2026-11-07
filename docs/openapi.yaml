@@ -1,0 +1,166 @@
+openapi: 3.1.0
+info:
+  title: CRM SEO API
+  version: 1.0.0
+  description: API REST del CRM SEO. Autenticación con API key (Bearer).
+servers:
+  - url: https://TU-DOMINIO/api/v1
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer }
+  schemas:
+    Stage:
+      type: string
+      enum: [PROSPECT, PROPOSAL_SENT, NEGOTIATION, ACTIVE_CLIENT, LOST]
+    Contact:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        company: { type: string }
+        phone: { type: string, description: E.164, ej. +573001234567 }
+        email: { type: string, format: email }
+        service: { type: string }
+        tags: { type: array, items: { type: string } }
+        monthlyValue: { type: integer, description: COP }
+        createdAt: { type: string, format: date-time }
+    ContactInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        company: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        service: { type: string }
+        tags: { type: array, items: { type: string } }
+        monthlyValue: { type: integer }
+    Deal:
+      type: object
+      properties:
+        id: { type: string }
+        contactId: { type: string }
+        title: { type: string }
+        stage: { $ref: '#/components/schemas/Stage' }
+        value: { type: integer }
+    InvoiceItem:
+      type: object
+      required: [description, quantity, unitPrice]
+      properties:
+        description: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        unitPrice: { type: integer, minimum: 0 }
+    Invoice:
+      type: object
+      properties:
+        id: { type: string }
+        number: { type: string, example: CC-001 }
+        contactId: { type: string }
+        issueDate: { type: string, format: date }
+        dueDate: { type: string, format: date }
+        status: { type: string, enum: [DRAFT, SENT, PAID, OVERDUE] }
+        items: { type: array, items: { $ref: '#/components/schemas/InvoiceItem' } }
+        total: { type: integer }
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+paths:
+  /contacts:
+    get:
+      summary: Listar contactos
+      parameters:
+        - { in: query, name: q, schema: { type: string } }
+        - { in: query, name: tag, schema: { type: string } }
+        - { in: query, name: page, schema: { type: integer, default: 1 } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Contact' } }, total: { type: integer } } } } } }
+        '401': { description: Sin API key válida, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    post:
+      summary: Crear contacto (emite contact.created)
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ContactInput' } } } }
+      responses:
+        '201': { description: Creado, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Contact' } } } } } }
+        '409': { description: Ya existe un contacto con ese teléfono }
+        '422': { description: Datos inválidos }
+  /contacts/{id}:
+    parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+    get: { summary: Detalle, responses: { '200': { description: OK }, '404': { description: No encontrado } } }
+    patch:
+      summary: Actualizar contacto
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/ContactInput' } } } }
+      responses: { '200': { description: OK }, '404': { description: No encontrado } }
+    delete: { summary: Eliminar, responses: { '204': { description: Eliminado } } }
+  /deals:
+    get:
+      summary: Listar oportunidades
+      parameters: [{ in: query, name: stage, schema: { $ref: '#/components/schemas/Stage' } }]
+      responses: { '200': { description: OK } }
+    post:
+      summary: Crear oportunidad
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/Deal' } } } }
+      responses: { '201': { description: Creada } }
+  /deals/{id}:
+    parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+    patch:
+      summary: Cambiar etapa o valor (emite deal.stage_changed)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { stage: { $ref: '#/components/schemas/Stage' }, value: { type: integer } } } } } }
+      responses: { '200': { description: OK }, '422': { description: Etapa inválida } }
+  /messages:
+    post:
+      summary: Enviar mensaje de WhatsApp de texto
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                contactId: { type: string }
+                to: { type: string, description: Teléfono E.164 si no se pasa contactId }
+                text: { type: string }
+      responses:
+        '201': { description: Enviado, content: { application/json: { schema: { type: object, properties: { data: { type: object, properties: { id: { type: string }, wamid: { type: string } } } } } } } }
+        '409': { description: WhatsApp no conectado o fuera de la ventana de 24 h (usar plantilla) }
+  /conversations/{contactId}/messages:
+    get:
+      summary: Historial de mensajes
+      parameters: [{ in: path, name: contactId, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK } }
+  /invoices:
+    get:
+      summary: Listar cuentas de cobro
+      parameters: [{ in: query, name: status, schema: { type: string, enum: [DRAFT, SENT, PAID, OVERDUE] } }]
+      responses: { '200': { description: OK } }
+    post:
+      summary: Crear cuenta de cobro (borrador)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contactId, items]
+              properties:
+                contactId: { type: string }
+                issueDate: { type: string, format: date }
+                dueDate: { type: string, format: date }
+                items: { type: array, items: { $ref: '#/components/schemas/InvoiceItem' } }
+      responses: { '201': { description: Creada, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Invoice' } } } } } } }
+  /invoices/{id}/send:
+    post:
+      summary: Enviar por WhatsApp (texto + PDF)
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses: { '200': { description: Enviada } }
+  /invoices/{id}/pay:
+    post:
+      summary: Marcar como pagada (emite invoice.paid)
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK }, '409': { description: Ya estaba pagada } }
+  /invoices/{id}/pdf:
+    get:
+      summary: Descargar PDF
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses: { '200': { description: PDF, content: { application/pdf: {} } } }

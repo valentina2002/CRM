@@ -1,0 +1,316 @@
+// CRM SEO data model.
+// Changes vs. the initial kit schema (Phase 0, 06 nov 2026) — see docs/01-requerimientos.md 2b and 4b:
+//  - Prisma 7: new `prisma-client` generator; the DB URL lives in prisma.config.ts (driver adapter `pg`).
+//  - User.role (ADMIN for now; collaborators come later).
+//  - Multi-channel: Channel enum, ContactChannel (one identity per channel per contact), Message.channel,
+//    ChannelAccount replaces WhatsAppAccount (one row per connected channel, token encrypted).
+//  - One unified Conversation per contact (all channels mixed, each message carries its channel).
+//  - Note model (many dated notes per contact) replaces the single Contact.notes text field.
+//  - ActivityLog gets contactId / type / data so the contact sheet can show its own history.
+//  - Contact.phone is kept as the E.164 WhatsApp number for quick lookup and dedupe.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String?
+  role         Role     @default(ADMIN)
+  createdAt    DateTime @default(now())
+}
+
+enum Channel {
+  WHATSAPP
+  FACEBOOK
+  INSTAGRAM
+  TIKTOK
+}
+
+model Contact {
+  id           String           @id @default(cuid())
+  name         String
+  company      String?
+  phone        String?          @unique // E.164 normalized (WhatsApp)
+  email        String?
+  service      String?
+  tags         String[]
+  monthlyValue Int              @default(0) // COP
+  source       String? // manual | api | whatsapp | facebook | instagram | tiktok | app_sync
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  channels     ContactChannel[]
+  deals        Deal[]
+  conversation Conversation?
+  invoices     Invoice[]
+  tasks        Task[]
+  notes        Note[]
+  activity     ActivityLog[]
+}
+
+/// Identity of a contact on a given channel (WhatsApp wa_id, Facebook PSID, Instagram IGSID, TikTok id).
+model ContactChannel {
+  id         String   @id @default(cuid())
+  contactId  String
+  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  channel    Channel
+  externalId String
+  handle     String? // @usuario or display name on that channel
+  createdAt  DateTime @default(now())
+
+  @@unique([channel, externalId])
+  @@index([contactId])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  contactId String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contactId, createdAt])
+}
+
+enum Stage {
+  PROSPECT
+  PROPOSAL_SENT
+  NEGOTIATION
+  ACTIVE_CLIENT
+  LOST
+}
+
+model Deal {
+  id        String   @id @default(cuid())
+  contactId String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  title     String
+  stage     Stage    @default(PROSPECT)
+  value     Int      @default(0)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// One unified thread per contact; messages from every channel live here.
+model Conversation {
+  id            String    @id @default(cuid())
+  contactId     String    @unique
+  contact       Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  unread        Int       @default(0)
+  lastInboundAt DateTime? // 24 h window (per channel is derived from messages)
+  lastChannel   Channel? // default channel to reply on
+  lastMessageAt DateTime?
+  messages      Message[]
+}
+
+enum MessageDirection {
+  IN
+  OUT
+}
+
+enum MessageVia {
+  CRM // sent from the CRM through the channel API
+  APP // sent from the WhatsApp Business app (smb_message_echoes) or the native app of the channel
+  AUTOMATION
+  HISTORY // imported history
+}
+
+enum MessageStatus {
+  RECEIVED
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+model Message {
+  id             String           @id @default(cuid())
+  conversationId String
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  channel        Channel          @default(WHATSAPP)
+  externalId     String? // wamid / mid; unique per channel
+  direction      MessageDirection
+  via            MessageVia?
+  type           String           @default("text")
+  body           String?
+  mediaId        String?
+  status         MessageStatus    @default(QUEUED)
+  error          String?
+  sentAt         DateTime         @default(now())
+
+  @@unique([channel, externalId])
+  @@index([conversationId, sentAt])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+}
+
+model Invoice {
+  id        String        @id @default(cuid())
+  number    String        @unique // CC-001
+  contactId String
+  contact   Contact       @relation(fields: [contactId], references: [id])
+  issueDate DateTime      @db.Date
+  dueDate   DateTime      @db.Date
+  status    InvoiceStatus @default(DRAFT)
+  paidAt    DateTime?
+  notes     String?
+  items     InvoiceItem[]
+  createdAt DateTime      @default(now())
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Int     @default(1)
+  unitPrice   Int // COP
+  position    Int     @default(0)
+}
+
+model IssuerSettings {
+  id          Int    @id @default(1)
+  name        String
+  document    String // C.C. / NIT
+  city        String
+  paymentInfo String
+}
+
+enum TriggerType {
+  CONTACT_CREATED
+  MESSAGE_RECEIVED
+  DEAL_STAGE_CHANGED
+  INVOICE_PAID
+  INVOICE_OVERDUE
+}
+
+model Automation {
+  id        String          @id @default(cuid())
+  name      String
+  trigger   TriggerType
+  condition String? // keyword or stage
+  actions   Json // [{ type: 'send_whatsapp'|'add_tag'|'move_stage'|'create_task', value: string }]
+  active    Boolean         @default(true)
+  runCount  Int             @default(0)
+  createdAt DateTime        @default(now())
+  runs      AutomationRun[]
+}
+
+model AutomationRun {
+  id           String     @id @default(cuid())
+  automationId String
+  automation   Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  eventId      String
+  ok           Boolean
+  detail       Json?
+  createdAt    DateTime   @default(now())
+}
+
+model Task {
+  id        String    @id @default(cuid())
+  text      String
+  done      Boolean   @default(false)
+  dueAt     DateTime?
+  contactId String?
+  contact   Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  createdAt DateTime  @default(now())
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  type        String // contact.created, message.received, deal.stage_changed, invoice.paid, invoice.overdue, message.sent
+  payload     Json
+  status      String    @default("pending") // pending | processed | failed
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([status, createdAt])
+}
+
+/// System-wide activity feed; rows with contactId also form that contact's history.
+model ActivityLog {
+  id        String   @id @default(cuid())
+  type      String   @default("info") // contact.updated, deal.stage_changed, tag.added, note.added, invoice.paid, automation.run...
+  text      String
+  data      Json? // e.g. { from: 'PROSPECT', to: 'NEGOTIATION' }
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([contactId, createdAt])
+  @@index([createdAt])
+}
+
+/// One row per connected channel (WhatsApp WABA, Facebook page, Instagram account, TikTok account).
+model ChannelAccount {
+  id             String    @id @default(cuid())
+  channel        Channel   @unique
+  externalId     String // waba_id / page_id / ig_user_id / tiktok business id
+  senderId       String? // WhatsApp phone_number_id
+  displayName    String? // phone number, page name or @handle
+  tokenEncrypted String
+  coexistence    Boolean   @default(false) // WhatsApp only
+  historySynced  Boolean   @default(false)
+  connectedAt    DateTime  @default(now())
+  disconnectedAt DateTime?
+}
+
+model WebhookInbox {
+  id         String   @id @default(cuid())
+  source     String   @default("meta") // meta | tiktok
+  payload    Json
+  processed  Boolean  @default(false)
+  error      String?
+  receivedAt DateTime @default(now())
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  name       String
+  prefix     String // first characters, to identify it in the UI
+  hash       String    @unique // SHA-256
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model WebhookEndpoint {
+  id         String            @id @default(cuid())
+  url        String
+  events     String[]
+  secret     String
+  active     Boolean           @default(true)
+  createdAt  DateTime          @default(now())
+  deliveries WebhookDelivery[]
+}
+
+model WebhookDelivery {
+  id         String          @id @default(cuid())
+  endpointId String
+  endpoint   WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  eventId    String
+  attempt    Int             @default(1)
+  statusCode Int?
+  ok         Boolean         @default(false)
+  nextTryAt  DateTime?
+  createdAt  DateTime        @default(now())
+}
