@@ -51,6 +51,18 @@ export function formatTime(value: Date | string): string {
   return timeFormatter.format(new Date(value));
 }
 
+/** "06 nov 2026 · 17:05" in Bogotá. */
+export function formatDateTime(value: Date | string): string {
+  return `${formatDate(value)} · ${formatTime(value)}`;
+}
+
+/** Feed-style time: "17:05" if it is today in Bogotá, otherwise "06 nov". */
+export function formatShortMoment(value: Date | string, now: Date = new Date()): string {
+  const date = new Date(value);
+  if (todayISO(date) === todayISO(now)) return formatTime(date);
+  return formatDate(date).split(" ").slice(0, 2).join(" ");
+}
+
 /** Today's calendar date in Bogotá as "YYYY-MM-DD". */
 export function todayISO(now: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE }).format(now);

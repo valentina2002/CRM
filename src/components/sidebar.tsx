@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "./brand-logo";
 
@@ -51,8 +51,6 @@ type SidebarProps = {
 };
 
 export function Sidebar({ conversationsBadge, footer, mobileSignOut }: SidebarProps) {
-  const pathname = usePathname();
-
   return (
     <aside className="flex w-full shrink-0 flex-col bg-sidebar text-sidebar-foreground min-[900px]:sticky min-[900px]:top-0 min-[900px]:h-screen min-[900px]:w-[232px]">
       <div className="flex items-center gap-2.5 px-[18px] pt-[18px] pb-4 text-[15px] font-bold text-white">
@@ -64,6 +62,22 @@ export function Sidebar({ conversationsBadge, footer, mobileSignOut }: SidebarPr
         <div className="ml-auto min-[900px]:hidden">{mobileSignOut}</div>
       </div>
 
+      {/* The pathname is request data: the links prerender without highlight and the active one streams in. */}
+      <Suspense fallback={<NavLinks pathname={null} badge={conversationsBadge} />}>
+        <ActiveNavLinks badge={conversationsBadge} />
+      </Suspense>
+
+      <div className="mt-auto hidden border-t border-sidebar-border px-[18px] py-3.5 text-xs text-sidebar-muted min-[900px]:block">{footer}</div>
+    </aside>
+  );
+}
+
+function ActiveNavLinks({ badge }: { badge: ReactNode }) {
+  return <NavLinks pathname={usePathname()} badge={badge} />;
+}
+
+function NavLinks({ pathname, badge }: { pathname: string | null; badge: ReactNode }) {
+  return (
       <nav aria-label="Principal" className="flex overflow-x-auto min-[900px]:flex-col min-[900px]:overflow-visible">
         {NAV.map((item) => {
           if ("section" in item) {
@@ -73,7 +87,7 @@ export function Sidebar({ conversationsBadge, footer, mobileSignOut }: SidebarPr
               </div>
             );
           }
-          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const active = pathname !== null && (pathname === item.href || pathname.startsWith(`${item.href}/`));
           return (
             <Link
               key={item.href}
@@ -87,13 +101,10 @@ export function Sidebar({ conversationsBadge, footer, mobileSignOut }: SidebarPr
             >
               <Icon name={item.icon} />
               <span>{item.label}</span>
-              {item.href === "/conversaciones" ? conversationsBadge : null}
+              {item.href === "/conversaciones" ? badge : null}
             </Link>
           );
         })}
       </nav>
-
-      <div className="mt-auto hidden border-t border-sidebar-border px-[18px] py-3.5 text-xs text-sidebar-muted min-[900px]:block">{footer}</div>
-    </aside>
   );
 }

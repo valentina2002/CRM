@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { LogOut } from "lucide-react";
 import { Sidebar } from "@/components/sidebar";
+import { Toaster } from "@/components/ui/sonner";
 import { db } from "@/lib/db";
 import { getUser, requireUser } from "@/lib/session";
 import { logout } from "./actions";
@@ -26,6 +27,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         mobileSignOut={<SignOutButton compact />}
       />
       <main className="min-w-0 flex-1 px-3.5 pt-[18px] pb-10 min-[900px]:px-[30px] min-[900px]:pt-[26px]">{children}</main>
+      <Toaster />
     </div>
   );
 }

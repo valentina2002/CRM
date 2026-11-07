@@ -43,6 +43,19 @@ Next.js (App Router) + TypeScript estricto · Tailwind CSS + shadcn/ui · Postgr
   (emisión/vencimiento) se formatean con `formatDay`, momentos con `formatDate`.
 - Colores del prototipo como tokens en `src/app/globals.css` (shadcn/ui, estilo new-york, utilidades con el paquete `cn`).
 
+## Notas técnicas (Fase 1)
+- **Capa de dominio** en `src/lib/services/*` (server-only): toda mutación pasa por aquí (UI hoy, API REST en Fase 5).
+  Cada cambio registra `ActivityLog` (con `contactId` → historial de la ficha) y, si aplica, `emit(tx, tipo, payload)`
+  dentro de la misma transacción (`src/lib/services/core.ts`). Errores para el usuario: `DomainError` (mensaje en español).
+- **Server Actions** en `src/app/(app)/crm-actions.ts`: validan con Zod (`src/lib/validation.ts`), envuelven con
+  `runAction()` (`src/lib/action-result.ts`: re-verifica sesión, `refresh()` y traduce errores). En el cliente: `useAction()`.
+- **Ficha del cliente** = componente servidor `ContactSheet` (`src/components/crm/contact-sheet.tsx`), reutilizable en el
+  panel del chat (Fase 4). Pestañas: Etapa · Historial · Tareas · Etiquetas · Notas.
+- Pipeline con `@dnd-kit/core` (mouse, touch y teclado) + selector por tarjeta; `useOptimistic` para mover al instante.
+- Reglas decididas en Fase 1: no se puede eliminar un contacto con cuentas de cobro; WhatsApp duplicado → error con el
+  nombre del contacto existente; "Cobrado en el mes" usa `paidAt` en el mes actual de Bogotá.
+- Para pasar funciones de un Server Component a un Client Component usa `action.bind(null, id)`, no flechas.
+
 ## Reglas
 - Idioma: **interfaz, textos y mensajes en español (Colombia)**. Código, nombres de variables y commits en inglés.
 - Moneda COP (`Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })`), zona horaria `America/Bogota`, fechas `dd mmm yyyy`.
