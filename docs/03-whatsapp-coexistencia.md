@@ -6,6 +6,23 @@ Contactos e historial se sincronizan; lo que se responde desde el celular llega 
 > Verifica siempre contra la documentación oficial de Meta (cambia seguido):
 > https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/onboarding-business-app-users
 
+## Verificado contra la doc de Meta (06 nov 2026)
+- Graph API vigente: **v27.0** (`META_GRAPH_VERSION`).
+- Embedded Signup v2/v3 quedaron obsoletos el 15 oct 2026: usar v4/v5. En v4 se pasa
+  `extras: { setup: {}, featureType: "whatsapp_business_app_onboarding", sessionInfoVersion: "3" }`; en v5 viene activado por defecto.
+- **Embedded Signup exige ser Tech Provider o Solution Partner** (con verificación del negocio). Alternativa sin eso: conexión manual
+  (WABA ID + Phone Number ID + token de usuario del sistema) desde Ajustes.
+- El `code` del FB.login dura **30 s**. El evento `FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING` puede traer solo `waba_id`
+  (el CRM busca el número con `GET /{waba_id}/phone_numbers`).
+- En coexistencia **no** se llama `/register`. Tras `POST /{waba_id}/subscribed_apps`, hay **24 h** para pedir
+  `POST /{phone_number_id}/smb_app_data` con `sync_type` `smb_app_state_sync` (contactos) y `history`; **cada una solo una vez**.
+- Webhooks: además de los de la tabla, `account_update` (desconexiones por inactividad de 14 días, etc.).
+- Meta puede omitir el teléfono (`wa_id`/`from`/`to`) y mandar solo `user_id` (BSUID): el CRM guarda ambos en `ContactChannel`
+  (`573…` y `uid:…`).
+- Historial: `history[].metadata.progress` 100 = completo; mensajes con `history_context.status` (mayúsculas o minúsculas);
+  si el negocio no comparte historial llega el error **2593109**. Los mensajes de historial no abren la ventana de 24 h.
+- Límite de envío en coexistencia: 20 mensajes/seg.
+
 ## Requisitos previos (los hace Valentina)
 1. Cuenta de Meta Business (business.facebook.com) — idealmente verificada.
 2. App en developers.facebook.com tipo **Business** con el producto **WhatsApp** agregado.

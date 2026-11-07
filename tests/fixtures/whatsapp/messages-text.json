@@ -1,0 +1,28 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [{
+    "id": "102290129340398",
+    "changes": [{
+      "value": {
+        "messaging_product": "whatsapp",
+        "metadata": { "display_phone_number": "573001112233", "phone_number_id": "106540352242922" },
+        "contacts": [{ "profile": { "name": "Carlos Restrepo" }, "wa_id": "573005550102", "user_id": "CO.13491208655302741918" }],
+        "messages": [{
+          "from": "573005550102",
+          "from_user_id": "CO.13491208655302741918",
+          "id": "wamid.IN_TEXT_1",
+          "timestamp": "1762470000",
+          "type": "text",
+          "text": { "body": "Hola, ¿qué PRECIO tiene el SEO local?" }
+        }, {
+          "from": "573005550102",
+          "id": "wamid.IN_IMAGE_1",
+          "timestamp": "1762470010",
+          "type": "image",
+          "image": { "id": "MEDIA1", "caption": "mi ficha de Google" }
+        }]
+      },
+      "field": "messages"
+    }]
+  }]
+}

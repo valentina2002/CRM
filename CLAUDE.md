@@ -84,6 +84,23 @@ Next.js (App Router) + TypeScript estricto · Tailwind CSS + shadcn/ui · Postgr
   Hasta 5 acciones por automatización. "Enviar WhatsApp" de una automatización queda `QUEUED` (`via: AUTOMATION`)
   hasta la Fase 4. "Mover a etapa" mueve las oportunidades del contacto que no estén en Perdido.
 
+## Notas técnicas (Fase 4 · WhatsApp)
+- Flujo: `/api/webhooks/whatsapp` (GET verificación; POST firma `X-Hub-Signature-256` sobre el body crudo → `WebhookInbox` →
+  200 → `after(runBackgroundWork)`). `runBackgroundWork()` (`src/lib/services/pipeline.ts`) = inbox → eventos/automatizaciones →
+  outbox. También corre en `/api/cron/process-events`.
+- Parser puro `src/lib/whatsapp/webhook-parser.ts` (fixtures en `tests/fixtures/whatsapp/`). Aplicación idempotente por
+  `(channel, externalId=wamid)` en `src/lib/services/whatsapp-inbox.ts`: entrantes (emite `message.received`, crea contacto y emite
+  `contact.created`), estados (nunca retroceden), ecos del celular (`via: APP`, ediciones/borrados), historial (`via: HISTORY`,
+  sin eventos ni ventana), contactos de la app (`source: app_sync`, sin eventos; nunca se borran).
+- Envío: todo mensaje saliente se crea `QUEUED` y lo manda `processOutbox()` (`whatsapp-outbox.ts`): texto/documento solo con la
+  ventana de 24 h abierta (`Conversation.lastInboundAt`), plantillas siempre. Cuenta de cobro = texto + PDF (documento). Sin cuenta
+  conectada los mensajes quedan en cola. Emite `message.sent` (solo para webhooks salientes).
+- Token de WhatsApp cifrado AES-256-GCM (`src/lib/crypto.ts`, `ENCRYPTION_KEY`). Cliente Graph: `src/lib/whatsapp/graph.ts`.
+- Bandeja `/conversaciones?c=<contactId>` (refresco cada 5 s, ficha como 3.ª columna o `&ficha=1` en móvil). Simulador de
+  webhooks solo en desarrollo (`simulatorEnabled()`), pasa por el mismo parser/inbox.
+- Ajustes `/ajustes`: Embedded Signup (coexistencia) si hay `META_APP_ID` + `META_EMBEDDED_SIGNUP_CONFIG_ID`; si no, conexión manual.
+- Detalles verificados de Meta: ver "Verificado contra la doc de Meta" en docs/03.
+
 ## Reglas
 - Idioma: **interfaz, textos y mensajes en español (Colombia)**. Código, nombres de variables y commits en inglés.
 - Moneda COP (`Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })`), zona horaria `America/Bogota`, fechas `dd mmm yyyy`.

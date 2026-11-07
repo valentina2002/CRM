@@ -1,8 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
-import { processPendingEvents } from "@/lib/services/event-processor";
+import { runBackgroundWork } from "@/lib/services/pipeline";
 
 /**
- * Backup processor for domain events (automations normally run right after each change). Useful for
+ * Backup processor: stored webhooks, domain events (automations normally run right after each change). Useful for
  * events created by webhooks/API (Phases 4–5). Needs `Authorization: Bearer $CRON_SECRET`.
  * Not scheduled in vercel.json yet: the Hobby plan only allows daily crons (decide in Phase 6).
  */
@@ -13,6 +13,6 @@ export async function GET(request: Request) {
   const ok = Boolean(secret) && header.length === expected.length && timingSafeEqual(Buffer.from(header), Buffer.from(expected));
   if (!ok) return Response.json({ error: "No autorizado" }, { status: 401 });
 
-  const { processed, runs } = await processPendingEvents(200);
-  return Response.json({ data: { processed, automations: runs.length } });
+  const { webhooks, events, outbox } = await runBackgroundWork();
+  return Response.json({ data: { webhooks, events: events.processed, automations: events.runs.length, sent: outbox.sent, failed: outbox.failed } });
 }

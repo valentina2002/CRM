@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CHANNEL_LABEL } from "@/lib/constants";
 import { formatCOP, formatDate, formatPhone, initials } from "@/lib/format";
 import { getContactSheet, listAllTags } from "@/lib/services/contacts";
+import { cn } from "@/lib/utils";
 import { Avatar, Card, Chip } from "./chip";
 import { ConfirmDialog } from "./confirm-dialog";
 import { ContactFormDialog } from "./contact-form-dialog";
@@ -42,13 +43,17 @@ export async function ContactSheet({ contactId, compact = false }: { contactId: 
   };
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-4 [&>*]:min-w-0">
       <Card>
         <div className="flex flex-wrap items-center gap-3">
-          <Avatar initials={initials(contact.name)} className="size-12 text-base" />
+          <Avatar initials={initials(contact.name)} className={compact ? "size-10" : "size-12 text-base"} />
           <div className="min-w-0 flex-1">
-            <h1 className="text-[20px] font-bold tracking-[-.01em]">{contact.name}</h1>
-            <div className="text-muted-foreground">
+            {compact ? (
+              <h2 className="text-[16px] font-bold">{contact.name}</h2>
+            ) : (
+              <h1 className="text-[20px] font-bold tracking-[-.01em]">{contact.name}</h1>
+            )}
+            <div className="text-[13px] break-words text-muted-foreground">
               {[contact.company, formatPhone(contact.phone), contact.email].filter(Boolean).join(" · ")}
             </div>
             {contact.tags.length ? (
@@ -59,8 +64,8 @@ export async function ContactSheet({ contactId, compact = false }: { contactId: 
               </div>
             ) : null}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" size="sm">
+          <div className={compact ? "flex w-full flex-wrap gap-2" : "flex flex-wrap gap-2"}>
+            <Button asChild variant="outline" size="sm" className={compact ? "hidden" : undefined}>
               <Link href={`/conversaciones?c=${contact.id}`}>
                 <MessageCircle /> Chat
                 {contact.conversation?.unread ? (
@@ -95,7 +100,7 @@ export async function ContactSheet({ contactId, compact = false }: { contactId: 
         </div>
       </Card>
 
-      <div className={compact ? "grid gap-4" : "grid items-start gap-4 lg:grid-cols-[minmax(260px,1fr)_2fr]"}>
+      <div className={cn("grid gap-4 [&>*]:min-w-0", !compact && "items-start lg:grid-cols-[minmax(260px,1fr)_2fr]")}>
         <Card title="Datos del cliente">
           <dl className="grid gap-2.5 text-[13.5px]">
             <Row label="Empresa">{contact.company}</Row>
@@ -104,7 +109,7 @@ export async function ContactSheet({ contactId, compact = false }: { contactId: 
             <Row label="Servicio">{contact.service}</Row>
             <Row label="Valor mensual">{formatCOP(contact.monthlyValue)}</Row>
             <Row label="Canales">
-              {contact.channels.length ? contact.channels.map((c) => <Chip key={c.id}>{CHANNEL_LABEL[c.channel]}</Chip>) : null}
+              {contact.channels.length ? [...new Set(contact.channels.map((c) => c.channel))].map((ch) => <Chip key={ch}>{CHANNEL_LABEL[ch]}</Chip>) : null}
             </Row>
             <Row label="Cuentas de cobro">{contact._count.invoices || null}</Row>
             <Row label="Origen">{contact.source ? (SOURCE_LABEL[contact.source] ?? contact.source) : null}</Row>

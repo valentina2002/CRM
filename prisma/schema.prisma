@@ -10,6 +10,7 @@
 //  - Contact.phone is kept as the E.164 WhatsApp number for quick lookup and dedupe.
 // Phase 2: Invoice.sentAt, Invoice.paidAt as @db.Date (a calendar day, avoids time-zone month shifts),
 //          IssuerSettings.showAmountInWords.
+// Phase 4: Message.meta, ChannelAccount.sync (coexistence sync state).
 
 generator client {
   provider = "prisma-client"
@@ -152,6 +153,7 @@ model Message {
   mediaId        String?
   status         MessageStatus    @default(QUEUED)
   error          String?
+  meta           Json? // e.g. { invoiceId, fileName } for documents, { template, language } for templates
   sentAt         DateTime         @default(now())
 
   @@unique([channel, externalId])
@@ -274,6 +276,7 @@ model ChannelAccount {
   tokenEncrypted String
   coexistence    Boolean   @default(false) // WhatsApp only
   historySynced  Boolean   @default(false)
+  sync           Json? // WhatsApp coexistence: { contactsRequestId, historyRequestId, requestedAt, historyProgress, historyError }
   connectedAt    DateTime  @default(now())
   disconnectedAt DateTime?
 }

@@ -14,6 +14,7 @@ import {
   sendInvoice,
   updateInvoice,
 } from "@/lib/services/invoices";
+import { getWhatsAppAccount } from "@/lib/services/whatsapp-account";
 import { requireUser } from "@/lib/session";
 import { firstError, invoiceInputSchema, issuerSchema, payInvoiceSchema } from "@/lib/validation";
 
@@ -54,6 +55,7 @@ export async function sendInvoiceAction(invoiceId: string, channel: "whatsapp" |
   if (!id.safeParse(invoiceId).success || !["whatsapp", "manual"].includes(channel)) return fail("Solicitud inválida");
   return runAction(async () => {
     await sendInvoice(invoiceId, channel);
+    return { whatsappConnected: Boolean(await getWhatsAppAccount()) };
   });
 }
 

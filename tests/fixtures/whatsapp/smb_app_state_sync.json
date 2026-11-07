@@ -1,0 +1,17 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [{
+    "id": "102290129340398",
+    "changes": [{
+      "value": {
+        "messaging_product": "whatsapp",
+        "metadata": { "display_phone_number": "573001112233", "phone_number_id": "106540352242922" },
+        "state_sync": [
+          { "type": "contact", "contact": { "full_name": "Pablo Morales", "first_name": "Pablo", "phone_number": "573205550177", "user_id": "CO.777" }, "action": "add", "metadata": { "timestamp": "1762470000" } },
+          { "type": "contact", "contact": { "phone_number": "573205550188", "user_id": "CO.888" }, "action": "remove", "metadata": { "timestamp": "1762470001" } }
+        ]
+      },
+      "field": "smb_app_state_sync"
+    }]
+  }]
+}

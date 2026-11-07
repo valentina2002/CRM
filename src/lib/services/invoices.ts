@@ -4,6 +4,7 @@ import { invoiceTotal } from "@/lib/dashboard";
 import { db } from "@/lib/db";
 import { addDaysISO, firstName, formatCOP, formatDay, isoToDbDate, todayISO } from "@/lib/format";
 import type { InvoiceInput, IssuerInput } from "@/lib/validation";
+import { invoiceFileName } from "@/lib/invoice-pdf";
 import { DomainError, emit, isUniqueViolation, logActivity, type Tx } from "./core";
 
 export const DEFAULT_ISSUER = {
@@ -166,7 +167,7 @@ export function invoiceMessage(invoice: InvoiceWithDetails, paymentInfo: string)
 
 /**
  * Sends (or marks as sent) a cuenta de cobro. DRAFT → SENT. With `whatsapp`, the message is saved in
- * the client's conversation as QUEUED; real delivery through the Cloud API (text + PDF) arrives in Phase 4.
+ * the client's conversation as QUEUED (text + PDF document); the outbox sends them through the Cloud API.
  */
 export async function sendInvoice(id: string, channel: "whatsapp" | "manual") {
   const invoice = await db.invoice.findUnique({ where: { id }, include: withContactAndItems });
@@ -199,6 +200,20 @@ export async function sendInvoice(id: string, channel: "whatsapp" | "manual") {
           body: invoiceMessage(invoice, issuer.paymentInfo),
           status: "QUEUED",
           sentAt: now,
+        },
+      });
+      // The PDF goes as a WhatsApp document right after the text (rendered and uploaded by the outbox).
+      await tx.message.create({
+        data: {
+          conversationId: conversation.id,
+          channel: "WHATSAPP",
+          direction: "OUT",
+          via: "CRM",
+          type: "document",
+          body: `📄 ${invoiceFileName(invoice)}`,
+          meta: { invoiceId: invoice.id },
+          status: "QUEUED",
+          sentAt: new Date(now.getTime() + 1),
         },
       });
     }

@@ -56,8 +56,8 @@ export function ContactSheetTabs({ data, defaultTab = "etapa" }: { data: SheetDa
 
       <div className="p-[18px]">
         <TabsContent value="etapa">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <p className="text-muted-foreground">Cambia la etapa de cada oportunidad de este cliente.</p>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="min-w-0 text-muted-foreground">Cambia la etapa de cada oportunidad de este cliente.</p>
             <DealDialog contactId={data.contactId} trigger={<Button size="sm" variant="outline">+ Oportunidad</Button>} />
           </div>
           {data.deals.length === 0 ? (
@@ -65,12 +65,12 @@ export function ContactSheetTabs({ data, defaultTab = "etapa" }: { data: SheetDa
           ) : (
             <ul className="grid gap-2.5">
               {data.deals.map((d) => (
-                <li key={d.id} className="flex flex-wrap items-center gap-3 rounded-[9px] border p-3">
+                <li key={d.id} className="flex flex-wrap items-center gap-3 rounded-[9px] border p-3 [&>*]:min-w-0">
                   <div className="min-w-0 flex-1">
                     <div className="text-[13.5px] font-semibold">{d.title}</div>
                     <div className="text-[12.5px] text-muted-foreground tabular-nums">{formatCOP(d.value)}</div>
                   </div>
-                  <StageSelect dealId={d.id} stage={d.stage} className="w-[180px] text-foreground" />
+                  <StageSelect dealId={d.id} stage={d.stage} className="w-[180px] max-w-full text-foreground" />
                   <ConfirmDialog
                     trigger={
                       <Button variant="ghost" size="icon-sm" aria-label={`Eliminar oportunidad ${d.title}`} title="Eliminar">

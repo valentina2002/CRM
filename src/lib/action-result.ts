@@ -1,7 +1,9 @@
 import "server-only";
 import { refresh } from "next/cache";
+import { after } from "next/server";
 import { DomainError } from "@/lib/services/core";
 import { processPendingEvents } from "@/lib/services/event-processor";
+import { processOutbox } from "@/lib/services/whatsapp-outbox";
 import { requireUser } from "@/lib/session";
 
 export type AutomationSummary = { count: number; failed: number };
@@ -31,6 +33,9 @@ export async function runAction<T>(fn: () => Promise<T>): Promise<ActionResult<T
   } catch (error) {
     console.error("Error ejecutando automatizaciones", error);
   }
+
+  // Queued WhatsApp messages go out after the response (Graph API calls can take a few seconds).
+  after(() => processOutbox().catch((error) => console.error("Error enviando WhatsApp", error)));
 
   refresh();
   return { ok: true, data, automations };

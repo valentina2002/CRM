@@ -22,7 +22,10 @@ export function SendWhatsAppButton({ invoiceId, number, size = "sm" }: { invoice
       disabled={pending}
       onClick={() =>
         run(() => sendInvoiceAction(invoiceId, "whatsapp"), {
-          success: `${number} guardada en la conversación. Se enviará cuando conectes WhatsApp (Fase 4).`,
+          onSuccess: (data) =>
+            data?.whatsappConnected
+              ? toast.success(`Enviando ${number} por WhatsApp (texto + PDF). Mira el estado en Conversaciones.`)
+              : toast(`${number} quedó en cola en la conversación: se enviará cuando conectes WhatsApp en Ajustes.`),
         })
       }
     >

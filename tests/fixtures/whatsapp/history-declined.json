@@ -1,0 +1,12 @@
+{
+  "messaging_product": "whatsapp",
+  "metadata": { "display_phone_number": "573001112233", "phone_number_id": "106540352242922" },
+  "history": [{
+    "errors": [{
+      "code": 2593109,
+      "title": "History sync is turned off by the business from the WhatsApp Business App",
+      "message": "History sync is turned off by the business from the WhatsApp Business App",
+      "error_data": { "details": "History sharing is turned off by the business" }
+    }]
+  }]
+}
