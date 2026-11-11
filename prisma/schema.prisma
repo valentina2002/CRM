@@ -11,6 +11,9 @@
 // Phase 2: Invoice.sentAt, Invoice.paidAt as @db.Date (a calendar day, avoids time-zone month shifts),
 //          IssuerSettings.showAmountInWords.
 // Phase 4: Message.meta, ChannelAccount.sync (coexistence sync state).
+// Phase 5: ApiKey.rateWindowStart / rateCount (per-key rate limit kept in the DB, serverless has no shared memory);
+//          WebhookDelivery is one row per (endpoint, event) that tracks its retries: eventType, error, lastAttemptAt,
+//          unique (endpointId, eventId) so an event is never queued twice; WebhookEndpoint.secret is stored encrypted.
 
 generator client {
   provider = "prisma-client"
@@ -291,33 +294,44 @@ model WebhookInbox {
 }
 
 model ApiKey {
-  id         String    @id @default(cuid())
-  name       String
-  prefix     String // first characters, to identify it in the UI
-  hash       String    @unique // SHA-256
-  lastUsedAt DateTime?
-  revokedAt  DateTime?
-  createdAt  DateTime  @default(now())
+  id              String    @id @default(cuid())
+  name            String
+  prefix          String // first characters, to identify it in the UI
+  hash            String    @unique // SHA-256
+  lastUsedAt      DateTime?
+  revokedAt       DateTime?
+  rateWindowStart DateTime? // start of the current one-minute rate-limit window
+  rateCount       Int       @default(0) // requests counted in that window
+  createdAt       DateTime  @default(now())
 }
 
 model WebhookEndpoint {
   id         String            @id @default(cuid())
   url        String
   events     String[]
-  secret     String
+  secret     String // signing secret, encrypted with ENCRYPTION_KEY (shown only once when created)
   active     Boolean           @default(true)
   createdAt  DateTime          @default(now())
   deliveries WebhookDelivery[]
 }
 
+/// One row per (endpoint, event). `attempt` is the attempt in progress or last made; `nextTryAt` is set while a
+/// try is pending and null once delivered or given up.
 model WebhookDelivery {
-  id         String          @id @default(cuid())
-  endpointId String
-  endpoint   WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
-  eventId    String
-  attempt    Int             @default(1)
-  statusCode Int?
-  ok         Boolean         @default(false)
-  nextTryAt  DateTime?
-  createdAt  DateTime        @default(now())
+  id            String          @id @default(cuid())
+  endpointId    String
+  endpoint      WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  eventId       String
+  eventType     String          @default("")
+  attempt       Int             @default(1)
+  statusCode    Int?
+  error         String?
+  ok            Boolean         @default(false)
+  nextTryAt     DateTime?
+  lastAttemptAt DateTime?
+  createdAt     DateTime        @default(now())
+
+  @@unique([endpointId, eventId])
+  @@index([ok, nextTryAt])
+  @@index([endpointId, createdAt])
 }

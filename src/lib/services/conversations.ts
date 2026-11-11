@@ -43,7 +43,18 @@ export async function getThread(contactId: string) {
   return { contact, conversation: contact.conversation, messages, windowOpen: isWindowOpen(contact.conversation?.lastInboundAt) };
 }
 
-async function queueMessage(contactId: string, data: { type: string; body: string; meta?: object }) {
+/** Latest messages of a contact's unified thread, oldest first (REST API). */
+export async function listMessages(contactId: string, limit: number) {
+  const conversation = await db.conversation.findUnique({ where: { contactId }, select: { id: true } });
+  if (!conversation) return { rows: [], total: 0 };
+  const [rows, total] = await Promise.all([
+    db.message.findMany({ where: { conversationId: conversation.id }, orderBy: { sentAt: "desc" }, take: limit }),
+    db.message.count({ where: { conversationId: conversation.id } }),
+  ]);
+  return { rows: rows.reverse(), total };
+}
+
+async function queueMessage(contactId: string, data: { type: string; body: string; meta?: object }, origin = "el CRM") {
   const contact = await db.contact.findUnique({ where: { id: contactId }, select: { id: true, name: true, phone: true } });
   if (!contact) throw new DomainError("Contacto no encontrado", "not_found");
   if (!contact.phone) throw new DomainError(`${contact.name} no tiene número de WhatsApp. Agrégalo en su ficha.`);
@@ -57,18 +68,18 @@ async function queueMessage(contactId: string, data: { type: string; body: strin
     const message = await tx.message.create({
       data: { conversationId: conversation.id, channel: "WHATSAPP", direction: "OUT", via: "CRM", type: data.type, body: data.body, meta: data.meta, status: "QUEUED", sentAt: now },
     });
-    await logActivity(tx, { type: "message.queued", text: `WhatsApp enviado a ${contact.name} desde el CRM` });
+    await logActivity(tx, { type: "message.queued", text: `WhatsApp enviado a ${contact.name} desde ${origin}` });
     return message;
   });
 }
 
 /** Free text from the CRM (goes out through the outbox; only within the 24 h window). */
-export async function sendTextMessage(contactId: string, text: string) {
+export async function sendTextMessage(contactId: string, text: string, origin?: string) {
   const thread = await db.conversation.findUnique({ where: { contactId }, select: { lastInboundAt: true } });
   if (!isWindowOpen(thread?.lastInboundAt)) {
-    throw new DomainError("Fuera de la ventana de 24 h: solo puedes enviar una plantilla aprobada hasta que el cliente te escriba.");
+    throw new DomainError("Fuera de la ventana de 24 h: solo puedes enviar una plantilla aprobada hasta que el cliente te escriba.", "conflict");
   }
-  return queueMessage(contactId, { type: "text", body: text });
+  return queueMessage(contactId, { type: "text", body: text }, origin);
 }
 
 export async function sendTemplateMessage(contactId: string, t: { name: string; language: string; params: string[]; preview: string }) {

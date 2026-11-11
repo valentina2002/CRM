@@ -1,13 +1,21 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
-import { Card } from "@/components/crm/chip";
+import { Card, Chip } from "@/components/crm/chip";
 import { PageHeader } from "@/components/page-header";
 import { PageSkeleton } from "@/components/page-skeleton";
+import { CopyButton, CreateApiKeyDialog, CreateWebhookDialog, RevokeApiKeyButton, WebhookControls } from "@/components/settings/api-settings";
+import { MethodBadge } from "@/components/settings/method-badge";
 import { CopyField, DisconnectButton, EmbeddedSignupButton, ManualConnectForm, SyncButton } from "@/components/settings/whatsapp-connect";
-import { formatDateTime } from "@/lib/format";
+import { Input } from "@/components/ui/input";
+import { rateLimitPerMinute } from "@/lib/api/rate-limit";
+import { formatDate, formatDateTime } from "@/lib/format";
+import { listApiKeys } from "@/lib/services/api-keys";
+import { listRecentDeliveries, listWebhookEndpoints } from "@/lib/services/webhooks-out";
 import { getWhatsAppAccount } from "@/lib/services/whatsapp-account";
 import { requireUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
+import { deliveryStatus } from "@/lib/webhooks/outgoing";
 
 export const metadata: Metadata = { title: "WhatsApp y API" };
 
@@ -17,6 +25,7 @@ export default function AjustesPage() {
       <PageHeader title="WhatsApp y API" subtitle="Conecta tu número con coexistencia y expón tu propia API para integrar otras herramientas." />
       <Suspense fallback={<PageSkeleton title="" />}>
         <Settings />
+        <ApiAndWebhooks />
       </Suspense>
     </>
   );
@@ -169,10 +178,147 @@ async function Settings() {
             <li>El historial (hasta 6 meses) y los contactos se importan una sola vez, en las 24 h siguientes a conectar.</li>
           </ul>
         </Card>
-        <Card title="API REST del CRM">
-          <p className="text-[13px] text-muted-foreground">Las API keys, la documentación y los webhooks salientes se configuran en la Fase 5.</p>
-        </Card>
       </div>
     </div>
   );
+}
+
+const API_ROUTES: [method: string, path: string, label: string][] = [
+  ["GET", "/contacts", "Listar / buscar contactos"],
+  ["POST", "/contacts", "Crear contacto"],
+  ["PATCH", "/contacts/{id}", "Actualizar contacto"],
+  ["GET", "/deals", "Listar oportunidades"],
+  ["PATCH", "/deals/{id}", "Cambiar etapa o valor"],
+  ["POST", "/messages", "Enviar WhatsApp"],
+  ["GET", "/invoices", "Listar cuentas de cobro"],
+  ["POST", "/invoices/{id}/pay", "Registrar pago"],
+];
+
+const DELIVERY_TONE = {
+  ok: "bg-success-soft text-primary",
+  pending: "bg-secondary text-muted-foreground",
+  retry: "bg-warning-soft text-warning",
+  failed: "bg-danger-soft text-destructive",
+} as const;
+
+async function ApiAndWebhooks() {
+  await requireUser();
+  const [keys, endpoints, deliveries] = await Promise.all([listApiKeys(), listWebhookEndpoints(), listRecentDeliveries()]);
+  const appUrl = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  const activeKeys = keys.filter((k) => !k.revokedAt);
+
+  return (
+    <div className="mt-4 grid items-start gap-4 lg:grid-cols-2">
+      <Card title="API REST del CRM" actions={<CreateApiKeyDialog />}>
+        <p className="-mt-1.5 mb-3 text-[12.5px] text-muted-foreground">
+          Conecta Zapier, Make, n8n o tu web. Cada petición lleva el header <code>Authorization: Bearer &lt;API key&gt;</code>.
+        </p>
+        <div className="grid gap-1.5">
+          <span className="text-[13px] font-semibold">URL base</span>
+          <div className="flex gap-2">
+            <Input readOnly value={`${appUrl}/api/v1`} className="font-mono text-[12.5px]" aria-label="URL base de la API" />
+            <CopyButton value={`${appUrl}/api/v1`} />
+          </div>
+        </div>
+
+        <h4 className="mt-4 mb-1 text-[13px] font-semibold">API keys</h4>
+        {keys.length === 0 ? (
+          <p className="text-[13px] text-muted-foreground">Aún no hay API keys. Crea una para empezar.</p>
+        ) : (
+          <ul>
+            {keys.map((k) => (
+              <li key={k.id} className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 border-b py-2 last:border-b-0", k.revokedAt && "opacity-60")}>
+                <div className="min-w-0 flex-1">
+                  <strong className="text-[13.5px]">{k.name}</strong> <code className="text-[12px] text-muted-foreground">{k.prefix}…</code>
+                  <div className="text-[12px] text-muted-foreground">
+                    {k.revokedAt
+                      ? `Revocada el ${formatDateTime(k.revokedAt)}`
+                      : `Creada el ${formatDate(k.createdAt)} · ${k.lastUsedAt ? `último uso ${formatDateTime(k.lastUsedAt)}` : "sin usar todavía"}`}
+                  </div>
+                </div>
+                {k.revokedAt ? <Chip>Revocada</Chip> : <RevokeApiKeyButton id={k.id} name={k.name} />}
+              </li>
+            ))}
+          </ul>
+        )}
+        {activeKeys.length > 0 ? (
+          <p className="mt-2 text-[12px] text-muted-foreground">Límite: {rateLimitPerMinute()} peticiones por minuto por key.</p>
+        ) : null}
+
+        <table className="mt-4 w-full text-[13px]">
+          <tbody>
+            {API_ROUTES.map(([method, path, label]) => (
+              <tr key={method + path} className="border-b last:border-b-0">
+                <td className="py-1.5 pr-2 align-top">
+                  <MethodBadge method={method} />
+                </td>
+                <td className="py-1.5 pr-2 align-top">
+                  <code className="break-all">{path}</code>
+                </td>
+                <td className="py-1.5 align-top text-muted-foreground">{label}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <Link href="/docs/api" className="mt-3 inline-block text-[13px] font-semibold text-info hover:underline">
+          Ver la documentación completa →
+        </Link>
+      </Card>
+
+      <Card title="Webhooks salientes" actions={<CreateWebhookDialog />}>
+        <p className="-mt-1.5 mb-3 text-[12.5px] text-muted-foreground">
+          El CRM avisa a otras apps cuando algo pasa. Cada envío va firmado (<code>X-CRM-Signature</code>) y, si falla, se reintenta a los 1 min, 5 min, 30 min, 2 h y 12 h.
+        </p>
+        {endpoints.length === 0 ? (
+          <p className="text-[13px] text-muted-foreground">Sin webhooks.</p>
+        ) : (
+          <ul>
+            {endpoints.map((e) => (
+              <li key={e.id} className={cn("border-b py-2 last:border-b-0", !e.active && "opacity-70")}>
+                <code className="block text-[12.5px] break-all">{e.url}</code>
+                <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    {e.events.map((ev) => (
+                      <Chip key={ev}>{ev}</Chip>
+                    ))}
+                  </div>
+                  <WebhookControls id={e.id} url={e.url} active={e.active} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <h4 className="mt-4 mb-1 text-[13px] font-semibold">Últimas entregas</h4>
+        {deliveries.length === 0 ? (
+          <p className="text-[13px] text-muted-foreground">Todavía no se ha enviado nada.</p>
+        ) : (
+          <ul className="text-[12.5px]">
+            {deliveries.map((d) => {
+              const status = deliveryStatus(d);
+              return (
+                <li key={d.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-b py-1.5 last:border-b-0">
+                  <code className="font-semibold">{d.eventType}</code>
+                  <span className={cn("rounded-full px-2 py-0.5 text-[11.5px] font-medium", DELIVERY_TONE[status.tone])}>{status.label}</span>
+                  <span className="min-w-0 flex-1 truncate text-muted-foreground" title={d.endpoint.url}>
+                    {hostOf(d.endpoint.url)}
+                  </span>
+                  <span className="text-muted-foreground">{formatDateTime(d.lastAttemptAt ?? d.createdAt)}</span>
+                  {d.error && !d.ok ? <span className="w-full text-destructive">{d.error}{d.nextTryAt && d.lastAttemptAt ? ` · próximo intento ${formatDateTime(d.nextTryAt)}` : ""}</span> : null}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function hostOf(url: string) {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
 }

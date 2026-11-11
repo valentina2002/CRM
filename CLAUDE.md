@@ -101,6 +101,31 @@ Next.js (App Router) + TypeScript estricto · Tailwind CSS + shadcn/ui · Postgr
 - Ajustes `/ajustes`: Embedded Signup (coexistencia) si hay `META_APP_ID` + `META_EMBEDDED_SIGNUP_CONFIG_ID`; si no, conexión manual.
 - Detalles verificados de Meta: ver "Verificado contra la doc de Meta" en docs/03.
 
+## Notas técnicas (Fase 5 · API pública y webhooks salientes)
+- Rutas en `src/app/api/v1/**/route.ts`, todas envueltas en `apiRoute()` (`src/lib/api/handler.ts`): API key Bearer →
+  límite por minuto → handler → errores `{ error }` (`ApiError` con status; `DomainError` → 404/409/422). Tras una escritura
+  exitosa corre `runBackgroundWork()` con `after()` (automatizaciones, WhatsApp y webhooks salientes). Fuera del proxy de sesión.
+- Validación con Zod en español (`src/lib/api/schemas.ts`, reutiliza `src/lib/validation.ts`); 422 trae `details` por campo.
+  `stage` acepta el enum o la etiqueta ("Negociación"). PATCH de contacto solo cambia los campos enviados.
+  Respuestas con `src/lib/api/serialize.ts` (fechas ISO; `@db.Date` como `YYYY-MM-DD`).
+- API keys `crm_` + 32 caracteres; en BD solo el hash SHA-256 (`src/lib/api/keys.ts`, `src/lib/services/api-keys.ts`). El
+  límite (`API_RATE_LIMIT_PER_MINUTE`, 120 por defecto) se cuenta en la fila de la key con un solo `UPDATE … RETURNING`
+  (ventana fija de un minuto; serverless no comparte memoria). Headers `X-RateLimit-*` y `Retry-After`.
+- `POST /messages` espera la respuesta de Meta (procesa la cola en la misma petición): 201 enviado, 409 sin WhatsApp o
+  fuera de la ventana de 24 h, 502 si Meta lo rechaza. Solo a contactos existentes (por `contactId` o `to`).
+- Webhooks salientes (`src/lib/webhooks/outgoing.ts` puro + `src/lib/services/webhooks-out.ts`): el procesador de eventos
+  crea una `WebhookDelivery` por endpoint suscrito (única por endpoint+evento) en la misma transacción;
+  `processWebhookDeliveries()` las envía (reclamándolas antes) con `X-CRM-Event`, `X-CRM-Delivery` y
+  `X-CRM-Signature: sha256=HMAC(body, secreto)`. Reintentos 1 min, 5 min, 30 min, 2 h, 12 h; timeout 10 s; sin seguir redirecciones.
+  El body lleva `contact` además del payload del evento. Secreto `whsec_…` cifrado con `ENCRYPTION_KEY`, se muestra una vez.
+  URLs: solo HTTPS públicas en producción (en desarrollo también http/localhost).
+- Los reintentos solo avanzan cuando corre `runBackgroundWork()` (tras acciones de la UI, llamadas a la API, webhooks de Meta o
+  `/api/cron/process-events`). Programar ese cron es decisión de la Fase 6.
+- `/docs/api` se genera desde `docs/openapi.yaml` (`src/lib/api/openapi-doc.ts`, `"use cache"`). `tests/api-contract.test.ts`
+  falla si una ruta de `src/app/api/v1` no está documentada o al revés: al agregar una ruta, actualiza el YAML.
+- Ajustes → "API REST del CRM" (crear/revocar keys) y "Webhooks salientes" (crear, pausar, probar con `ping`, eliminar,
+  últimas entregas). La página tiene un probador de la API como el del prototipo.
+
 ## Reglas
 - Idioma: **interfaz, textos y mensajes en español (Colombia)**. Código, nombres de variables y commits en inglés.
 - Moneda COP (`Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })`), zona horaria `America/Bogota`, fechas `dd mmm yyyy`.

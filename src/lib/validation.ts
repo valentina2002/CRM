@@ -29,7 +29,7 @@ const optionalText = (max: number) =>
     .transform((v) => v ?? null);
 
 /** COP amounts: accepts "1.200.000", "1200000" or numbers; integer pesos, never negative. */
-const copAmount = z.preprocess(
+export const copAmount = z.preprocess(
   (v) => (typeof v === "string" ? Number(v.replace(/[^\d]/g, "") || 0) : (v ?? 0)),
   z.number().int().min(0, "El valor no puede ser negativo").max(10_000_000_000, "Valor demasiado alto"),
 );
@@ -103,7 +103,7 @@ export function firstError(error: z.ZodError): string {
 
 // ---------- Cuentas de cobro ----------
 
-const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida");
+export const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida");
 
 export const invoiceItemSchema = z.object({
   description: z.string().trim().min(1, "Cada actividad necesita una descripción").max(300),

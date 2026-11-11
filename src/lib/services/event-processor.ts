@@ -4,6 +4,7 @@ import { runAutomationsForEvent, type EngineEvent, type EnginePorts } from "@/li
 import { STAGE_LABEL } from "@/lib/constants";
 import { db } from "@/lib/db";
 import { logActivity, type Tx } from "./core";
+import { queueWebhookDeliveries } from "./webhooks-out";
 
 /** DB implementation of the engine ports. No emit() here: automation actions never create events. */
 function dbPorts(tx: Tx): EnginePorts {
@@ -64,7 +65,7 @@ function toEngineEvent(e: { id: string; type: string; payload: unknown }): Engin
 
 /**
  * Processes pending domain events: runs matching automations (in one transaction per event), counts
- * runs, logs them and marks the event processed. Safe to call concurrently (events are claimed first).
+ * runs, logs them, queues the outgoing webhooks and marks the event processed. Safe to call concurrently (events are claimed first).
  * Called right after each mutation (server actions) and by the backup cron route.
  */
 export async function processPendingEvents(limit = 50) {
@@ -94,7 +95,8 @@ export async function processPendingEvents(limit = 50) {
               runs.push({ name: r.name, ok: r.ok });
             }
           }
-          // Outgoing webhooks for this event are queued here in Phase 5.
+          // Outgoing webhooks: one pending delivery per subscribed endpoint (sent by processWebhookDeliveries).
+          await queueWebhookDeliveries(tx, event);
           await tx.event.update({ where: { id: event.id }, data: { status: "processed", processedAt: new Date() } });
         },
         { timeout: 15_000 },
