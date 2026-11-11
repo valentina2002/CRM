@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Avatar, Chip } from "@/components/crm/chip";
 import { ContactSheet } from "@/components/crm/contact-sheet";
+import { ChannelBadge, ChannelMark } from "@/components/conversations/channel-badge";
 import { Composer } from "@/components/conversations/composer";
 import { AutoRefresh, ConversationList, MarkRead, MessageThread } from "@/components/conversations/inbox-client";
 import { PageHeader } from "@/components/page-header";
@@ -11,6 +12,7 @@ import { PageSkeleton } from "@/components/page-skeleton";
 import { Button } from "@/components/ui/button";
 import { firstName, formatPhone, initials } from "@/lib/format";
 import { getThread, listConversations, simulatorEnabled } from "@/lib/services/conversations";
+import { getSocialAccounts } from "@/lib/services/social-account";
 import { getWhatsAppAccount } from "@/lib/services/whatsapp-account";
 import { requireUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -22,10 +24,10 @@ export default function ConversacionesPage({ searchParams }: PageProps<"/convers
     <>
       <PageHeader
         title="Conversaciones"
-        subtitle="Bandeja de WhatsApp. Con coexistencia, lo que respondas desde el celular también aparece aquí."
+        subtitle="WhatsApp, Facebook e Instagram en un solo hilo por cliente. Lo que respondas desde el celular también aparece aquí."
         actions={
           <Button asChild variant="outline">
-            <Link href="/ajustes">Configurar WhatsApp</Link>
+            <Link href="/ajustes">Configurar canales</Link>
           </Button>
         }
       />
@@ -41,7 +43,8 @@ async function Inbox({ searchParams }: { searchParams: PageProps<"/conversacione
   const sp = await searchParams;
   const requested = typeof sp.c === "string" ? sp.c : undefined;
   const sheetOpen = sp.ficha === "1";
-  const [items, account] = await Promise.all([listConversations(requested), getWhatsAppAccount()]);
+  const [items, account, social] = await Promise.all([listConversations(requested), getWhatsAppAccount(), getSocialAccounts()]);
+  const connected = { WHATSAPP: Boolean(account), FACEBOOK: Boolean(social.facebook), INSTAGRAM: Boolean(social.instagram), TIKTOK: false };
   const activeId = requested ?? items[0]?.contactId ?? null;
   const thread = activeId ? await getThread(activeId) : null;
 
@@ -52,7 +55,7 @@ async function Inbox({ searchParams }: { searchParams: PageProps<"/conversacione
     : { text: "○ WhatsApp sin conectar", on: false };
 
   return (
-    <div className="grid overflow-hidden rounded-[10px] border bg-card md:h-[calc(100vh-150px)] md:min-h-[520px] md:grid-cols-[300px_1fr] xl:grid-cols-[300px_1fr_400px]">
+    <div className="grid grid-cols-1 overflow-hidden rounded-[10px] border bg-card md:h-[calc(100vh-150px)] md:min-h-[520px] md:grid-cols-[300px_1fr] xl:grid-cols-[300px_1fr_400px]">
       <AutoRefresh />
       <ConversationList items={items} activeId={activeId} />
 
@@ -71,6 +74,13 @@ async function Inbox({ searchParams }: { searchParams: PageProps<"/conversacione
                 </div>
                 <div className="text-[12.5px] text-muted-foreground">
                   {formatPhone(thread.contact.phone)}{" "}
+                  {thread.channels
+                    .filter((c) => c.channel !== "WHATSAPP")
+                    .map((c) => (
+                      <ChannelBadge key={c.channel} channel={c.channel} className="mr-[3px]">
+                        {c.handle ?? c.label}
+                      </ChannelBadge>
+                    ))}
                   {thread.contact.tags.map((t) => (
                     <Chip key={t}>{t}</Chip>
                   ))}
@@ -80,9 +90,15 @@ async function Inbox({ searchParams }: { searchParams: PageProps<"/conversacione
                 <span className={cn("rounded-full px-2.5 py-1 text-[12px] font-semibold", coexBadge.on ? "bg-success-soft text-primary" : "bg-secondary text-muted-foreground")}>
                   {coexBadge.text}
                 </span>
-                <span className={cn("rounded-full px-2.5 py-1 text-[12px] font-semibold", thread.windowOpen ? "bg-info-soft text-info" : "bg-warning-soft text-warning")}>
-                  {thread.windowOpen ? "Ventana 24 h abierta" : "Ventana 24 h cerrada"}
-                </span>
+                {thread.channels.map((c) => (
+                  <span
+                    key={c.channel}
+                    className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold", c.windowOpen ? "bg-info-soft text-info" : "bg-warning-soft text-warning")}
+                  >
+                    {thread.channels.length > 1 ? <ChannelMark channel={c.channel} /> : null}
+                    {c.windowOpen ? "Ventana 24 h abierta" : "Ventana 24 h cerrada"}
+                  </span>
+                ))}
                 <Button asChild variant="outline" size="sm" className="xl:hidden">
                   <Link href={`/conversaciones?c=${thread.contact.id}&ficha=1`} scroll={false}>
                     <UserRound /> Ficha
@@ -95,6 +111,7 @@ async function Inbox({ searchParams }: { searchParams: PageProps<"/conversacione
               <MessageThread
                 messages={thread.messages.map((m) => ({
                   id: m.id,
+                  channel: m.channel,
                   direction: m.direction,
                   via: m.via,
                   status: m.status,
@@ -110,9 +127,8 @@ async function Inbox({ searchParams }: { searchParams: PageProps<"/conversacione
               contactId={thread.contact.id}
               firstName={firstName(thread.contact.name)}
               company={thread.contact.company ?? ""}
-              hasPhone={Boolean(thread.contact.phone)}
-              windowOpen={thread.windowOpen}
-              connected={Boolean(account)}
+              channels={thread.channels.map((c) => ({ ...c, connected: connected[c.channel] }))}
+              defaultChannel={thread.defaultChannel}
               simulator={simulatorEnabled()}
             />
           </section>

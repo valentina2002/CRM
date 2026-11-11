@@ -1,0 +1,28 @@
+{
+  "object": "page",
+  "entry": [{
+    "id": "110200300400500",
+    "time": 1762470000500,
+    "messaging": [{
+      "sender": { "id": "7100200300400501" },
+      "recipient": { "id": "110200300400500" },
+      "timestamp": 1762470000000,
+      "message": { "mid": "m_FB_TEXT_1", "text": "Hola, ¿qué PRECIO tiene el SEO local?" }
+    }, {
+      "sender": { "id": "7100200300400501" },
+      "recipient": { "id": "110200300400500" },
+      "timestamp": 1762470005000,
+      "message": { "mid": "m_FB_IMG_1", "attachments": [{ "type": "image", "payload": { "url": "https://scontent.example/foto.jpg" } }, { "type": "image", "payload": { "url": "https://scontent.example/foto2.jpg" } }] }
+    }, {
+      "sender": { "id": "7100200300400501" },
+      "recipient": { "id": "110200300400500" },
+      "timestamp": 1762470006000,
+      "postback": { "title": "Quiero una auditoría", "payload": "AUDITORIA", "mid": "m_FB_POSTBACK_1" }
+    }, {
+      "sender": { "id": "7100200300400501" },
+      "recipient": { "id": "110200300400500" },
+      "timestamp": 1762470007000,
+      "reaction": { "mid": "m_FB_TEXT_1", "action": "react", "emoji": "❤️" }
+    }]
+  }]
+}

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { deleteContactAndLeaveAction } from "@/app/(app)/crm-actions";
+import { ChannelBadge } from "@/components/conversations/channel-badge";
 import { Button } from "@/components/ui/button";
 import { CHANNEL_LABEL } from "@/lib/constants";
 import { formatCOP, formatDate, formatPhone, initials } from "@/lib/format";
@@ -12,6 +13,7 @@ import { Avatar, Card, Chip } from "./chip";
 import { ConfirmDialog } from "./confirm-dialog";
 import { ContactFormDialog } from "./contact-form-dialog";
 import { ContactSheetTabs } from "./contact-sheet-tabs";
+import { MergeContactDialog } from "./merge-contact-dialog";
 
 const SOURCE_LABEL: Record<string, string> = {
   manual: "Creado a mano",
@@ -81,6 +83,7 @@ export async function ContactSheet({ contactId, compact = false }: { contactId: 
                 </Button>
               }
             />
+            <MergeContactDialog contactId={contact.id} contactName={contact.name} inChat={compact} />
             <ConfirmDialog
               trigger={
                 <Button variant="outline" size="sm" aria-label="Eliminar contacto">
@@ -109,7 +112,14 @@ export async function ContactSheet({ contactId, compact = false }: { contactId: 
             <Row label="Servicio">{contact.service}</Row>
             <Row label="Valor mensual">{formatCOP(contact.monthlyValue)}</Row>
             <Row label="Canales">
-              {contact.channels.length ? [...new Set(contact.channels.map((c) => c.channel))].map((ch) => <Chip key={ch}>{CHANNEL_LABEL[ch]}</Chip>) : null}
+              {contact.channels.length
+                ? [...new Set(contact.channels.map((c) => c.channel))].map((ch) => (
+                    <ChannelBadge key={ch} channel={ch} className="mr-[3px]">
+                      {CHANNEL_LABEL[ch]}
+                      {contact.channels.find((c) => c.channel === ch && c.handle)?.handle ? ` · ${contact.channels.find((c) => c.channel === ch && c.handle)?.handle}` : ""}
+                    </ChannelBadge>
+                  ))
+                : null}
             </Row>
             <Row label="Cuentas de cobro">{contact._count.invoices || null}</Row>
             <Row label="Origen">{contact.source ? (SOURCE_LABEL[contact.source] ?? contact.source) : null}</Row>

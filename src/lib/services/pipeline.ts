@@ -1,15 +1,18 @@
 import "server-only";
 import { processPendingEvents } from "./event-processor";
+import { processSocialOutbox } from "./social-outbox";
 import { processWebhookDeliveries } from "./webhooks-out";
 import { processWebhookInbox } from "./whatsapp-inbox";
 import { processOutbox } from "./whatsapp-outbox";
 
 /**
- * Sends what is waiting to leave the CRM: queued WhatsApp messages, then the `message.sent` events they
+ * Sends what is waiting to leave the CRM: queued WhatsApp / Messenger / Instagram messages, then the `message.sent` events they
  * produce, then the outgoing webhooks that are due. Runs after the response of UI actions and API calls.
  */
 export async function flushOutgoing() {
-  const outbox = await processOutbox();
+  const whatsapp = await processOutbox();
+  const social = await processSocialOutbox();
+  const outbox = { sent: whatsapp.sent + social.sent, failed: whatsapp.failed + social.failed };
   if (outbox.sent) await processPendingEvents();
   const deliveries = await processWebhookDeliveries();
   return { outbox, deliveries };

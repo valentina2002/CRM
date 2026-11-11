@@ -188,7 +188,7 @@ export async function sendInvoice(id: string, channel: "whatsapp" | "manual") {
       const now = new Date();
       const conversation = await tx.conversation.upsert({
         where: { contactId: invoice.contactId },
-        update: { lastMessageAt: now, lastChannel: "WHATSAPP" },
+        update: { lastMessageAt: now },
         create: { contactId: invoice.contactId, lastMessageAt: now, lastChannel: "WHATSAPP" },
       });
       await tx.message.create({

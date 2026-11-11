@@ -2,8 +2,10 @@ import "server-only";
 import type { MessageStatus } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { formatPhone, normalizePhone } from "@/lib/format";
+import { isSocialPayload } from "@/lib/meta/messaging-parser";
 import { parseWebhook, type ParsedItem, type Peer } from "@/lib/whatsapp/webhook-parser";
 import { emit, logActivity, type Tx } from "./core";
+import { applySocialPayload } from "./social-inbox";
 import { getWhatsAppAccount, updateSyncState } from "./whatsapp-account";
 
 const uidKey = (userId: string) => `uid:${userId}`;
@@ -208,17 +210,18 @@ export async function applyWebhookPayload(payload: unknown) {
   return items.length;
 }
 
-/** Processes stored webhook payloads (WebhookInbox) in arrival order. Returns how many were processed. */
+/** Processes stored webhook payloads (WebhookInbox) in arrival order: WhatsApp, Messenger and Instagram. Returns how many were processed. */
 export async function processWebhookInbox(limit = 25) {
   const rows = await db.webhookInbox.findMany({ where: { processed: false, error: null }, orderBy: { receivedAt: "asc" }, take: limit });
   let done = 0;
   for (const row of rows) {
     try {
-      await applyWebhookPayload(row.payload);
+      if (isSocialPayload(row.payload)) await applySocialPayload(row.payload);
+      else await applyWebhookPayload(row.payload);
       await db.webhookInbox.update({ where: { id: row.id }, data: { processed: true } });
       done++;
     } catch (error) {
-      console.error("Error procesando webhook de WhatsApp", row.id, error);
+      console.error("Error procesando webhook de Meta", row.id, error);
       await db.webhookInbox.update({ where: { id: row.id }, data: { error: error instanceof Error ? error.message.slice(0, 500) : "Error" } });
     }
   }

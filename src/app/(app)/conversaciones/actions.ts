@@ -17,13 +17,16 @@ import { firstError } from "@/lib/validation";
 const id = z.string().min(1).max(64);
 const textSchema = z.string().trim().min(1, "Escribe un mensaje").max(4096, "El mensaje es demasiado largo (máx. 4096)");
 
-export async function sendMessageAction(contactId: string, text: string) {
+const channelSchema = z.enum(["WHATSAPP", "FACEBOOK", "INSTAGRAM"]);
+
+export async function sendMessageAction(contactId: string, text: string, channel: string = "WHATSAPP") {
   await requireUser();
   const parsed = textSchema.safeParse(text);
   if (!parsed.success) return fail(firstError(parsed.error));
-  if (!id.safeParse(contactId).success) return fail("Contacto inválido");
+  const parsedChannel = channelSchema.safeParse(channel);
+  if (!id.safeParse(contactId).success || !parsedChannel.success) return fail("Contacto o canal inválido");
   return runAction(async () => {
-    await sendTextMessage(contactId, parsed.data);
+    await sendTextMessage(contactId, parsed.data, undefined, parsedChannel.data);
   });
 }
 
@@ -75,9 +78,10 @@ export async function listTemplatesAction() {
   }
 }
 
-export async function simulateAction(contactId: string, kind: "inbound" | "echo", text: string) {
+export async function simulateAction(contactId: string, kind: "inbound" | "echo", text: string, channel: string = "WHATSAPP") {
   await requireUser();
   const parsed = textSchema.safeParse(text);
-  if (!parsed.success || !id.safeParse(contactId).success || !["inbound", "echo"].includes(kind)) return fail("Datos inválidos");
-  return runAction(() => simulateWebhook(contactId, kind, parsed.data));
+  const parsedChannel = channelSchema.safeParse(channel);
+  if (!parsed.success || !parsedChannel.success || !id.safeParse(contactId).success || !["inbound", "echo"].includes(kind)) return fail("Datos inválidos");
+  return runAction(() => simulateWebhook(contactId, kind, parsed.data, parsedChannel.data));
 }
