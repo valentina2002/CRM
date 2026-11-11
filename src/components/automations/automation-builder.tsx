@@ -11,8 +11,8 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import type { TriggerType } from "@/generated/prisma/enums";
-import { MAX_ACTIONS, type AutomationAction } from "@/lib/automation-engine";
-import { ACTION_LABEL, STAGES, TRIGGER_LABEL, type AutomationActionType } from "@/lib/constants";
+import { MAX_ACTIONS, WAIT_PATTERN, type AutomationAction } from "@/lib/automation-engine";
+import { ACTION_LABEL, CONTACT_SOURCE_LABEL, STAGES, TRIGGER_LABEL, type AutomationActionType } from "@/lib/constants";
 
 export type EditableAutomation = { id: string; name: string; trigger: TriggerType; condition: string | null; actions: AutomationAction[] };
 
@@ -20,7 +20,11 @@ type DraftAction = { key: number; type: AutomationActionType; value: string };
 let k = 0;
 const draft = (a?: AutomationAction): DraftAction => ({ key: ++k, type: a?.type ?? "send_whatsapp", value: a?.value ?? "" });
 
-const VARIABLES = ["{nombre}", "{empresa}", "{factura}", "{valor}"];
+const VARIABLES = ["{nombre}", "{empresa}", "{factura}", "{valor}", "{vence}"];
+
+const DEFAULT_VALUE: Partial<Record<AutomationActionType, string>> = { move_stage: "ACTIVE_CLIENT", wait: "2d", wait_due: "-3", stop_if: "replied" };
+const DUE_TRIGGERS: TriggerType[] = ["INVOICE_SENT", "INVOICE_OVERDUE"];
+const INVOICE_TRIGGERS: TriggerType[] = ["INVOICE_SENT", "INVOICE_PAID", "INVOICE_OVERDUE"];
 
 /** "Cuando… → Entonces…" builder, like the prototype's editAuto(). */
 export function AutomationBuilder({ trigger, automation }: { trigger: ReactNode; automation?: EditableAutomation }) {
@@ -35,6 +39,7 @@ export function AutomationBuilder({ trigger, automation }: { trigger: ReactNode;
   const update = (key: number, patch: Partial<DraftAction>) => setActions((list) => list.map((a) => (a.key === key ? { ...a, ...patch } : a)));
   const usesKeyword = when === "MESSAGE_RECEIVED";
   const usesStage = when === "DEAL_STAGE_CHANGED";
+  const usesSource = when === "CONTACT_CREATED";
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,7 +49,7 @@ export function AutomationBuilder({ trigger, automation }: { trigger: ReactNode;
         saveAutomationAction(automation?.id ?? null, {
           name,
           trigger: when,
-          condition: usesKeyword || usesStage ? condition : null,
+          condition: usesKeyword || usesStage || usesSource ? condition : null,
           actions: actions.map(({ type, value }) => ({ type, value })),
         }),
       { success: "Automatización guardada", onError: setError, onSuccess: () => setOpen(false) },
@@ -86,6 +91,8 @@ export function AutomationBuilder({ trigger, automation }: { trigger: ReactNode;
                   const next = e.target.value as TriggerType;
                   setWhen(next);
                   setCondition(next === "DEAL_STAGE_CHANGED" ? "PROPOSAL_SENT" : "");
+                  // A due-date wait only makes sense with cuenta de cobro triggers.
+                  if (!DUE_TRIGGERS.includes(next)) setActions((list) => list.map((a) => (a.type === "wait_due" ? { ...a, type: "wait", value: "2d" } : a)));
                 }}
               >
                 {(Object.keys(TRIGGER_LABEL) as TriggerType[]).map((t) => (
@@ -110,6 +117,17 @@ export function AutomationBuilder({ trigger, automation }: { trigger: ReactNode;
                   ))}
                 </NativeSelect>
               </Field>
+            ) : usesSource ? (
+              <Field label="Si el contacto llega por (opcional)" htmlFor="au_c">
+                <NativeSelect id="au_c" value={condition} onChange={(e) => setCondition(e.target.value)}>
+                  <option value="">Cualquier origen</option>
+                  {Object.entries(CONTACT_SOURCE_LABEL).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
             ) : (
               <p className="self-end pb-2 text-[12.5px] text-muted-foreground">Este disparador no necesita condición.</p>
             )}
@@ -122,22 +140,24 @@ export function AutomationBuilder({ trigger, automation }: { trigger: ReactNode;
             <span className="mb-1.5 block text-[12.5px] font-semibold text-[#3b475a]">Entonces…</span>
             <ol className="grid gap-2">
               {actions.map((a, i) => (
-                <li key={a.key} className="grid gap-2 rounded-md border bg-[#fafbfc] p-2 sm:grid-cols-[190px_1fr_32px]">
+                <li key={a.key} className="grid gap-2 rounded-md border bg-[#fafbfc] p-2 sm:grid-cols-[236px_1fr_32px]">
                   <NativeSelect
                     aria-label={`Acción ${i + 1}`}
                     value={a.type}
                     onChange={(e) => {
                       const type = e.target.value as AutomationActionType;
-                      update(a.key, { type, value: type === "move_stage" ? "ACTIVE_CLIENT" : "" });
+                      update(a.key, { type, value: DEFAULT_VALUE[type] ?? "" });
                     }}
                   >
-                    {(Object.keys(ACTION_LABEL) as AutomationActionType[]).map((t) => (
-                      <option key={t} value={t}>
-                        {i + 1}. {ACTION_LABEL[t]}
-                      </option>
-                    ))}
+                    {(Object.keys(ACTION_LABEL) as AutomationActionType[])
+                      .filter((t) => t !== "wait_due" || DUE_TRIGGERS.includes(when) || a.type === t)
+                      .map((t) => (
+                        <option key={t} value={t}>
+                          {i + 1}. {ACTION_LABEL[t]}
+                        </option>
+                      ))}
                   </NativeSelect>
-                  <ActionValue action={a} onChange={(value) => update(a.key, { value })} index={i} />
+                  <ActionValue action={a} onChange={(value) => update(a.key, { value })} index={i} invoiceTrigger={INVOICE_TRIGGERS.includes(when)} />
                   <Button
                     type="button"
                     variant="ghost"
@@ -173,6 +193,10 @@ export function AutomationBuilder({ trigger, automation }: { trigger: ReactNode;
             ))}
             · Las acciones de una automatización no disparan otras automatizaciones.
           </p>
+          <p className="-mt-1.5 text-[12.5px] text-muted-foreground">
+            Con <strong>Esperar</strong> la automatización se pausa y sigue sola después. Pon <strong>Detener si…</strong> justo después de una espera para no escribirle a quien ya
+            respondió o ya pagó.
+          </p>
           {error ? <p role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-[13px] text-destructive">{error}</p> : null}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={pending}>
@@ -188,7 +212,7 @@ export function AutomationBuilder({ trigger, automation }: { trigger: ReactNode;
   );
 }
 
-function ActionValue({ action, onChange, index }: { action: DraftAction; onChange: (v: string) => void; index: number }) {
+function ActionValue({ action, onChange, index, invoiceTrigger }: { action: DraftAction; onChange: (v: string) => void; index: number; invoiceTrigger: boolean }) {
   const label = `Valor de la acción ${index + 1}`;
   switch (action.type) {
     case "send_whatsapp":
@@ -207,5 +231,51 @@ function ActionValue({ action, onChange, index }: { action: DraftAction; onChang
       return <Input aria-label={label} value={action.value} onChange={(e) => onChange(e.target.value)} placeholder="Ej.: interesado" maxLength={40} className="bg-white" />;
     case "create_task":
       return <Input aria-label={label} value={action.value} onChange={(e) => onChange(e.target.value)} placeholder="Ej.: Llamar a {nombre} en 24 h" maxLength={300} className="bg-white" />;
+    case "wait": {
+      const m = WAIT_PATTERN.exec(action.value);
+      const amount = m?.[1] ?? "";
+      const unit = m?.[2] ?? "d";
+      return (
+        <div className="flex gap-2">
+          <Input aria-label={`${label}: cantidad`} inputMode="numeric" value={amount} onChange={(e) => onChange(`${e.target.value.replace(/\D/g, "").slice(0, 4)}${unit}`)} className="w-24 bg-white" />
+          <NativeSelect aria-label={`${label}: unidad`} value={unit} onChange={(e) => onChange(`${amount}${e.target.value}`)} className="w-32">
+            <option value="m">minutos</option>
+            <option value="h">horas</option>
+            <option value="d">días</option>
+          </NativeSelect>
+        </div>
+      );
+    }
+    case "wait_due": {
+      const n = Number(action.value) || 0;
+      const when = n < 0 ? "before" : n > 0 ? "after" : "on";
+      const days = String(Math.abs(n));
+      const set = (w: string, d: string) => onChange(w === "on" ? "0" : `${w === "before" ? "-" : ""}${Number(d.replace(/\D/g, "").slice(0, 2)) || 1}`);
+      return (
+        <div className="flex flex-wrap items-center gap-2">
+          {when !== "on" ? (
+            <Input aria-label={`${label}: días`} inputMode="numeric" value={days} onChange={(e) => set(when, e.target.value)} className="w-20 bg-white" />
+          ) : null}
+          <NativeSelect aria-label={`${label}: momento`} value={when} onChange={(e) => set(e.target.value, days === "0" ? "3" : days)} className="w-auto">
+            <option value="before">días antes de la fecha límite</option>
+            <option value="on">el día de la fecha límite</option>
+            <option value="after">días después de la fecha límite</option>
+          </NativeSelect>
+          <span className="text-[12px] text-muted-foreground">a las 9:00</span>
+        </div>
+      );
+    }
+    case "stop_if":
+      return (
+        <NativeSelect aria-label={label} value={action.value} onChange={(e) => onChange(e.target.value)}>
+          <option value="replied">El cliente respondió (desde que empezó)</option>
+          {invoiceTrigger ? <option value="invoice_paid">La cuenta de cobro ya está pagada</option> : null}
+          {STAGES.map((s) => (
+            <option key={s.value} value={`stage:${s.value}`}>
+              Tiene una oportunidad en {s.label}
+            </option>
+          ))}
+        </NativeSelect>
+      );
   }
 }

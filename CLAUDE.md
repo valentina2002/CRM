@@ -145,6 +145,24 @@ Next.js (App Router) + TypeScript estricto · Tailwind CSS + shadcn/ui · Postgr
   `EngineContact.reachable` permite responder a contactos sin teléfono.
 - Simulador de desarrollo con selector de canal (pasa por el parser real). UI: `ChannelMark` / `ChannelBadge`.
 
+## Notas técnicas (Fase 7 · Crecimiento)
+- Automatizaciones con pausas: acciones `wait` ("30m"/"4h"/"2d", máx. 90 días), `wait_due` (días relativos a `dueDate`, 9:00
+  Bogotá = 14:00 UTC) y `stop_if` (`replied` | `invoice_paid` | `stage:<STAGE>`); máx. 8 acciones y la última no puede ser
+  espera/condición. Motor puro: `execute()` corre hasta una pausa (`ports.schedule` → fila `AutomationJob`) o un stop;
+  `resumeAutomation()` sigue desde `nextIndex` (no corre si la automatización está pausada o se borró). Pausar una
+  automatización cancela sus esperas pendientes. `RunDetail.segment` "start"/"resume", `pausedUntil`, `stopped`.
+- `processDueAutomationJobs()` (`event-processor.ts`) reclama y retoma las esperas vencidas; corre primero en `flushOutgoing()`
+  (o sea, tras cualquier acción, llamada a la API, webhook, formulario o el cron `/api/cron/process-events`).
+- Evento `invoice.sent` (solo el primer envío, con `dueDate`) → disparador `INVOICE_SENT`. `invoice.overdue`/`invoice.paid`
+  también llevan `dueDate`. Variable `{vence}`. `CONTACT_CREATED` acepta condición = origen (`CONTACT_SOURCE_LABEL`).
+- Plantillas en `src/lib/automation-templates.ts` (probadas contra el esquema). La de reseña de Google se crea en pausa.
+- Formularios: `LeadForm` (publicId aleatorio) + `LeadSubmission` (solo hash de la IP con `AUTH_SECRET`; límite 5 envíos/10 min por
+  IP). Reglas puras en `src/lib/lead-form.ts`; servicio `lead-forms.ts` (dedupe por WhatsApp o correo → nota en vez de duplicar).
+  Endpoint público `POST /api/forms/[publicId]` (form-urlencoded → redirección 303; JSON → CORS abierto). Página pública
+  `/f/[publicId]` excluida del proxy de sesión (matcher `f/`). Honeypot `website`; consentimiento obligatorio (Ley 1581 de 2012).
+- Reportes: cálculo puro `src/lib/reports.ts` (pruebas) + consultas `services/reports.ts`; página `/reportes?periodo=30|90|365`.
+- Respuestas rápidas: modelo `QuickReply` (`services/quick-replies.ts`); sin filas se muestran las 4 por defecto.
+
 ## Reglas
 - Idioma: **interfaz, textos y mensajes en español (Colombia)**. Código, nombres de variables y commits en inglés.
 - Moneda COP (`Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })`), zona horaria `America/Bogota`, fechas `dd mmm yyyy`.

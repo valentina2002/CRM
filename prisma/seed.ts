@@ -88,6 +88,7 @@ async function wipe() {
   // Children first. Users are kept (upserted below) so the login survives a re-seed.
   await db.webhookDelivery.deleteMany();
   await db.webhookEndpoint.deleteMany();
+  await db.automationJob.deleteMany();
   await db.automationRun.deleteMany();
   await db.automation.deleteMany();
   await db.invoiceItem.deleteMany();
@@ -103,6 +104,9 @@ async function wipe() {
   await db.event.deleteMany();
   await db.webhookInbox.deleteMany();
   await db.issuerSettings.deleteMany();
+  await db.leadSubmission.deleteMany();
+  await db.leadForm.deleteMany();
+  await db.quickReply.deleteMany();
 }
 
 async function main() {
@@ -204,6 +208,17 @@ async function main() {
 
   await db.issuerSettings.create({
     data: { id: 1, name: "Valentina", document: "C.C. ________", city: "Medellín", paymentInfo: "Banco: ________ · Cuenta de ahorros N.º ________" },
+  });
+
+  // Phase 7: a sample lead form (its public page is /f/demo-contacto).
+  await db.leadForm.create({
+    data: {
+      publicId: "demo-contacto",
+      name: "Contacto página web",
+      tags: ["lead web"],
+      service: "SEO local",
+      successMessage: "Gracias por escribir. Te contacto muy pronto por WhatsApp.",
+    },
   });
 
   await db.webhookEndpoint.create({

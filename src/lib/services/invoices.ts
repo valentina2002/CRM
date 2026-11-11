@@ -218,6 +218,17 @@ export async function sendInvoice(id: string, channel: "whatsapp" | "manual") {
         },
       });
     }
+    if (!invoice.sentAt) {
+      // First send only: re-sending must not start the reminder automations again.
+      await emit(tx, "invoice.sent", {
+        invoiceId: id,
+        contactId: invoice.contactId,
+        number: invoice.number,
+        total: invoiceTotal(invoice),
+        dueDate: invoice.dueDate.toISOString().slice(0, 10),
+        channel,
+      });
+    }
     await logActivity(tx, {
       type: "invoice.sent",
       text:
@@ -247,7 +258,7 @@ export async function markInvoicePaid(id: string, paidAtISO: string) {
       contactId: invoice.contactId,
       data: { invoiceId: id },
     });
-    await emit(tx, "invoice.paid", { invoiceId: id, contactId: invoice.contactId, number: invoice.number, total, paidAt: paidAtISO });
+    await emit(tx, "invoice.paid", { invoiceId: id, contactId: invoice.contactId, number: invoice.number, total, paidAt: paidAtISO, dueDate: invoice.dueDate.toISOString().slice(0, 10) });
     return updated;
   });
 }
@@ -273,7 +284,7 @@ export async function checkOverdueInvoices(today: string = todayISO()) {
         contactId: invoice.contactId,
         data: { invoiceId: invoice.id },
       });
-      await emit(tx, "invoice.overdue", { invoiceId: invoice.id, contactId: invoice.contactId, number: invoice.number, total });
+      await emit(tx, "invoice.overdue", { invoiceId: invoice.id, contactId: invoice.contactId, number: invoice.number, total, dueDate: invoice.dueDate.toISOString().slice(0, 10) });
     });
   }
   return due.map((i) => i.number);

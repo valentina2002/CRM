@@ -1,21 +1,20 @@
 "use client";
 
-import { FileText, Send } from "lucide-react";
+import { FileText, Pencil, Send } from "lucide-react";
 import { useRef, useState } from "react";
-import { listTemplatesAction, sendMessageAction, sendTemplateAction, simulateAction } from "@/app/(app)/conversaciones/actions";
+import { listTemplatesAction, saveQuickRepliesAction, sendMessageAction, sendTemplateAction, simulateAction } from "@/app/(app)/conversaciones/actions";
 import { useAction } from "@/components/crm/use-action";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
 import type { Channel } from "@/generated/prisma/enums";
 import { CHANNEL_LABEL } from "@/lib/constants";
 import { fillTemplate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ChannelMark } from "./channel-badge";
-
-const QUICK = ["Hola {nombre}, ¿cómo estás?", "Te comparto el informe SEO del mes.", "¿Agendamos una llamada esta semana?", "Te envío la cuenta de cobro del mes."];
 
 export type ComposerChannel = { channel: Channel; label: string; handle: string | null; windowOpen: boolean; connected: boolean };
 
@@ -27,10 +26,12 @@ type Props = {
   channels: ComposerChannel[];
   /** The channel the customer last wrote on. */
   defaultChannel: Channel | null;
+  /** Editable quick replies (with {nombre} / {empresa}). */
+  quickReplies: string[];
   simulator: boolean;
 };
 
-export function Composer({ contactId, firstName, company, channels, defaultChannel, simulator }: Props) {
+export function Composer({ contactId, firstName, company, channels, defaultChannel, quickReplies, simulator }: Props) {
   const [text, setText] = useState("");
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [chosen, setChosen] = useState<Channel | null>(null);
@@ -93,7 +94,7 @@ export function Composer({ contactId, firstName, company, channels, defaultChann
       {active.windowOpen ? (
         <>
           <div className="flex gap-1.5 overflow-x-auto px-3 pt-2 [&::-webkit-scrollbar]:hidden">
-            {QUICK.map((q) => (
+            {quickReplies.map((q) => (
               <button
                 key={q}
                 type="button"
@@ -106,6 +107,7 @@ export function Composer({ contactId, firstName, company, channels, defaultChann
                 {fillTemplate(q, vars)}
               </button>
             ))}
+            <QuickRepliesEditor replies={quickReplies} />
           </div>
           <form
             className="flex gap-2 px-3 py-2.5"
@@ -152,6 +154,50 @@ export function Composer({ contactId, firstName, company, channels, defaultChann
       <TemplatesDialog open={templatesOpen} onOpenChange={setTemplatesOpen} contactId={contactId} vars={vars} />
       {simulator ? <Simulator contactId={contactId} channel={active.channel} hasIdentity /> : null}
     </div>
+  );
+}
+
+function QuickRepliesEditor({ replies }: { replies: string[] }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const { pending, run } = useAction();
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(n) => {
+        setOpen(n);
+        setError(null);
+        if (n) setText(replies.join("\n"));
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="shrink-0 cursor-pointer rounded-full border border-dashed px-2.5 py-[3px] text-[12px] whitespace-nowrap text-muted-foreground hover:bg-secondary"
+      >
+        <Pencil className="inline size-3" /> Editar
+      </button>
+      <DialogContent className="sm:max-w-[560px]">
+        <DialogHeader>
+          <DialogTitle>Respuestas rápidas</DialogTitle>
+          <DialogDescription>Una por línea (máximo 12). Puedes usar {"{nombre}"} y {"{empresa}"}: se completan con los datos del cliente.</DialogDescription>
+        </DialogHeader>
+        <Textarea aria-label="Respuestas rápidas, una por línea" rows={8} value={text} onChange={(e) => setText(e.target.value)} />
+        {error ? <p role="alert" className="rounded-md bg-danger-soft px-3 py-2 text-[13px] text-destructive">{error}</p> : null}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>
+            Cancelar
+          </Button>
+          <Button
+            disabled={pending}
+            onClick={() => run(() => saveQuickRepliesAction(text), { success: "Respuestas rápidas guardadas", onError: setError, onSuccess: () => setOpen(false) })}
+          >
+            Guardar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

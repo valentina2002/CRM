@@ -1,6 +1,7 @@
 import "server-only";
 import type { Stage } from "@/generated/prisma/enums";
-import { runAutomationsForEvent, type EngineEvent, type EnginePorts } from "@/lib/automation-engine";
+import type { Prisma } from "@/generated/prisma/client";
+import { resumeAutomation, runAutomationsForEvent, type EngineEvent, type EnginePorts } from "@/lib/automation-engine";
 import { STAGE_LABEL } from "@/lib/constants";
 import { db } from "@/lib/db";
 import { logActivity, type Tx } from "./core";
@@ -61,6 +62,44 @@ function dbPorts(tx: Tx): EnginePorts {
     async recordRun(run) {
       await tx.automationRun.create({ data: { automationId: run.automationId, eventId: run.eventId, ok: run.ok, detail: run.detail } });
     },
+
+    now: () => new Date(),
+
+    async schedule(run) {
+      await tx.automationJob.create({
+        data: {
+          automationId: run.automationId,
+          contactId: run.contactId,
+          eventId: run.eventId,
+          event: run.event as unknown as Prisma.InputJsonObject,
+          nextIndex: run.nextIndex,
+          startedAt: run.startedAt,
+          resumeAt: run.resumeAt,
+        },
+      });
+    },
+
+    async shouldStop(condition, { contactId, event, startedAt }) {
+      if (condition === "replied") {
+        // Any live message from the customer (any channel) after the automation started.
+        const reply = await tx.message.findFirst({
+          where: { conversation: { contactId }, direction: "IN", sentAt: { gt: startedAt }, OR: [{ via: null }, { via: { not: "HISTORY" } }] },
+          select: { id: true },
+        });
+        return Boolean(reply);
+      }
+      if (condition === "invoice_paid") {
+        const invoiceId = (event.payload as { invoiceId?: string }).invoiceId;
+        if (!invoiceId) return false;
+        const invoice = await tx.invoice.findUnique({ where: { id: invoiceId }, select: { status: true } });
+        return !invoice || invoice.status === "PAID"; // a deleted draft also ends the reminders
+      }
+      if (condition.startsWith("stage:")) {
+        const deal = await tx.deal.findFirst({ where: { contactId, stage: condition.slice(6) as Stage }, select: { id: true } });
+        return Boolean(deal);
+      }
+      return false;
+    },
   };
 }
 
@@ -115,4 +154,45 @@ export async function processPendingEvents(limit = 50) {
     }
   }
   return { processed, runs };
+}
+
+/**
+ * Resumes automations whose wait is over (AutomationJob with resumeAt <= now). Each job is claimed first,
+ * so concurrent runs never resume it twice. Runs after UI actions, API calls, webhooks and the cron route;
+ * how late a wait can fire depends on how often that happens (see docs/05, Fase 7).
+ */
+export async function processDueAutomationJobs(limit = 50, now: Date = new Date()) {
+  const due = await db.automationJob.findMany({ where: { status: "pending", resumeAt: { lte: now } }, orderBy: { resumeAt: "asc" }, take: limit });
+  let resumed = 0;
+  for (const job of due) {
+    const claimed = await db.automationJob.updateMany({ where: { id: job.id, status: "pending" }, data: { status: "processing" } });
+    if (!claimed.count) continue;
+    try {
+      const status = await db.$transaction(
+        async (tx) => {
+          const automation = await tx.automation.findUnique({ where: { id: job.automationId } });
+          const outcome = await resumeAutomation(
+            { eventId: job.eventId, contactId: job.contactId, event: job.event as unknown as Pick<EngineEvent, "type" | "payload">, nextIndex: job.nextIndex, startedAt: job.startedAt },
+            automation,
+            dbPorts(tx),
+          );
+          if (!outcome) return "cancelled";
+          await logActivity(tx, {
+            type: "automation.run",
+            text: `Automatización “${automation!.name}” continuó después de la espera${outcome.ok ? "" : " (con errores)"}`,
+            contactId: job.contactId,
+            data: { automationId: job.automationId, jobId: job.id, ok: outcome.ok },
+          });
+          return "done";
+        },
+        { timeout: 15_000 },
+      );
+      await db.automationJob.update({ where: { id: job.id }, data: { status } });
+      if (status === "done") resumed++;
+    } catch (error) {
+      console.error(`Error retomando la automatización (job ${job.id})`, error);
+      await db.automationJob.update({ where: { id: job.id }, data: { status: "failed" } }).catch(() => {});
+    }
+  }
+  return { resumed };
 }

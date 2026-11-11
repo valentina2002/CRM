@@ -17,6 +17,8 @@ const ICONS = {
   automatizaciones: "M13 2 3 14h9l-1 8 10-12h-9z",
   integraciones: "M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4",
   api: "M16 18l6-6-6-6M8 6l-6 6 6 6",
+  formularios: "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM7 8h10M7 12h10M7 16h6",
+  reportes: "M3 3v18h18M7 15l4-4 3 3 5-6",
 } as const;
 
 type NavItem = { href: string; label: string; icon: keyof typeof ICONS } | { section: string };
@@ -28,7 +30,9 @@ const NAV: NavItem[] = [
   { href: "/conversaciones", label: "Conversaciones", icon: "conversaciones" },
   { href: "/cuentas-de-cobro", label: "Cuentas de cobro", icon: "cobros" },
   { href: "/automatizaciones", label: "Automatizaciones", icon: "automatizaciones" },
+  { href: "/reportes", label: "Reportes", icon: "reportes" },
   { section: "Conexiones" },
+  { href: "/formularios", label: "Formularios", icon: "formularios" },
   { href: "/ajustes", label: "WhatsApp y API", icon: "integraciones" },
   { href: "/docs/api", label: "Documentación API", icon: "api" },
 ];

@@ -12,6 +12,7 @@ import { PageSkeleton } from "@/components/page-skeleton";
 import { Button } from "@/components/ui/button";
 import { firstName, formatPhone, initials } from "@/lib/format";
 import { getThread, listConversations, simulatorEnabled } from "@/lib/services/conversations";
+import { listQuickReplies } from "@/lib/services/quick-replies";
 import { getSocialAccounts } from "@/lib/services/social-account";
 import { getWhatsAppAccount } from "@/lib/services/whatsapp-account";
 import { requireUser } from "@/lib/session";
@@ -43,7 +44,7 @@ async function Inbox({ searchParams }: { searchParams: PageProps<"/conversacione
   const sp = await searchParams;
   const requested = typeof sp.c === "string" ? sp.c : undefined;
   const sheetOpen = sp.ficha === "1";
-  const [items, account, social] = await Promise.all([listConversations(requested), getWhatsAppAccount(), getSocialAccounts()]);
+  const [items, account, social, quickReplies] = await Promise.all([listConversations(requested), getWhatsAppAccount(), getSocialAccounts(), listQuickReplies()]);
   const connected = { WHATSAPP: Boolean(account), FACEBOOK: Boolean(social.facebook), INSTAGRAM: Boolean(social.instagram), TIKTOK: false };
   const activeId = requested ?? items[0]?.contactId ?? null;
   const thread = activeId ? await getThread(activeId) : null;
@@ -129,6 +130,7 @@ async function Inbox({ searchParams }: { searchParams: PageProps<"/conversacione
               company={thread.contact.company ?? ""}
               channels={thread.channels.map((c) => ({ ...c, connected: connected[c.channel] }))}
               defaultChannel={thread.defaultChannel}
+              quickReplies={quickReplies}
               simulator={simulatorEnabled()}
             />
           </section>
