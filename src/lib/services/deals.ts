@@ -73,3 +73,15 @@ export async function listBoardDeals() {
     include: { contact: { select: { id: true, name: true, company: true } } },
   });
 }
+
+/** Deals for the REST API, optionally filtered by stage or contact. */
+export async function listDeals(filter: { stage?: Stage; contactId?: string } = {}) {
+  return db.deal.findMany({
+    where: { ...(filter.stage ? { stage: filter.stage } : {}), ...(filter.contactId ? { contactId: filter.contactId } : {}) },
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+  });
+}
+
+export async function getDeal(id: string) {
+  return db.deal.findUnique({ where: { id } });
+}

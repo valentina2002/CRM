@@ -8,7 +8,9 @@ import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import type { MessageDirection, MessageStatus, MessageVia, Stage } from "../src/generated/prisma/enums";
+import { encryptSecret } from "../src/lib/crypto";
 import { addDaysISO, isoToDbDate, normalizePhone, todayISO } from "../src/lib/format";
+import { generateWebhookSecret } from "../src/lib/webhooks/outgoing";
 
 config({ path: ".env.local", quiet: true });
 
@@ -208,7 +210,8 @@ async function main() {
     data: {
       url: "https://hooks.zapier.com/hooks/catch/ejemplo",
       events: ["invoice.paid", "contact.created"],
-      secret: crypto.randomUUID().replace(/-/g, ""),
+      // Stored encrypted like the ones created in Ajustes (plain only if ENCRYPTION_KEY is missing; it stays inactive).
+      secret: process.env.ENCRYPTION_KEY ? encryptSecret(generateWebhookSecret()) : generateWebhookSecret(),
       active: false, // sample only: never deliver to the example URL
     },
   });

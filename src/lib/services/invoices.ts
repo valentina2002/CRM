@@ -1,5 +1,6 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
+import type { InvoiceStatus } from "@/generated/prisma/enums";
 import { invoiceTotal } from "@/lib/dashboard";
 import { db } from "@/lib/db";
 import { addDaysISO, firstName, formatCOP, formatDay, isoToDbDate, todayISO } from "@/lib/format";
@@ -278,8 +279,12 @@ export async function checkOverdueInvoices(today: string = todayISO()) {
   return due.map((i) => i.number);
 }
 
-export async function listInvoices() {
-  return db.invoice.findMany({ include: withContactAndItems, orderBy: { number: "desc" } });
+export async function listInvoices(filter: { status?: InvoiceStatus; contactId?: string } = {}) {
+  return db.invoice.findMany({
+    where: { ...(filter.status ? { status: filter.status } : {}), ...(filter.contactId ? { contactId: filter.contactId } : {}) },
+    include: withContactAndItems,
+    orderBy: { number: "desc" },
+  });
 }
 
 export async function getInvoice(id: string) {

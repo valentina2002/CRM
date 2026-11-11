@@ -1,4 +1,5 @@
 import "server-only";
+import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { formatCOP, formatPhone } from "@/lib/format";
 import type { ContactInput } from "@/lib/validation";
@@ -134,6 +135,48 @@ export async function listContacts() {
     orderBy: { createdAt: "desc" },
     include: { deals: { orderBy: { createdAt: "asc" }, select: { id: true, stage: true }, take: 1 } },
   });
+}
+
+export const API_PAGE_SIZE = 50;
+
+/**
+ * Paginated search for the REST API: `q` matches name, company, phone, email or an exact tag; `tag` filters by
+ * tag ignoring case. Newest first.
+ */
+export async function searchContacts(filter: { q?: string; tag?: string; page: number }) {
+  const and: Prisma.ContactWhereInput[] = [];
+  if (filter.q) {
+    const q = filter.q;
+    const digits = q.replace(/[^\d]/g, "");
+    and.push({
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { company: { contains: q, mode: "insensitive" } },
+        { email: { contains: q, mode: "insensitive" } },
+        ...(digits.length >= 3 ? [{ phone: { contains: digits } }] : []),
+        { tags: { hasSome: await tagSpellings(q) } },
+      ],
+    });
+  }
+  if (filter.tag) and.push({ tags: { hasSome: await tagSpellings(filter.tag) } });
+  const where: Prisma.ContactWhereInput = and.length ? { AND: and } : {};
+  const [rows, total] = await Promise.all([
+    db.contact.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "asc" }], skip: (filter.page - 1) * API_PAGE_SIZE, take: API_PAGE_SIZE }),
+    db.contact.count({ where }),
+  ]);
+  return { rows, total };
+}
+
+/** Every stored spelling of a tag ("VIP", "vip"), so array filters can ignore case. */
+async function tagSpellings(tag: string): Promise<string[]> {
+  const wanted = tag.trim().toLocaleLowerCase("es-CO");
+  const rows = await db.contact.findMany({ where: { tags: { isEmpty: false } }, select: { tags: true } });
+  const found = new Set(rows.flatMap((r) => r.tags).filter((t) => t.toLocaleLowerCase("es-CO") === wanted));
+  return found.size ? [...found] : [tag.trim()];
+}
+
+export async function getContact(id: string) {
+  return db.contact.findUnique({ where: { id } });
 }
 
 /** Everything the contact sheet needs. */

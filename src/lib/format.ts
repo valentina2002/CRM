@@ -63,6 +63,12 @@ export function formatShortMoment(value: Date | string, now: Date = new Date()):
   return formatDate(date).split(" ").slice(0, 2).join(" ");
 }
 
+/** ISO 8601 with the Bogotá offset (fixed UTC−5, no daylight saving): "2026-11-06T20:00:00-05:00". */
+export function toBogotaISO(value: Date | string): string {
+  const shifted = new Date(new Date(value).getTime() - 5 * 60 * 60 * 1000);
+  return `${shifted.toISOString().slice(0, 19)}-05:00`;
+}
+
 /** Today's calendar date in Bogotá as "YYYY-MM-DD". */
 export function todayISO(now: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE }).format(now);

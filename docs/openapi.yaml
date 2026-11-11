@@ -2,42 +2,96 @@ openapi: 3.1.0
 info:
   title: CRM SEO API
   version: 1.0.0
-  description: API REST del CRM SEO. Autenticación con API key (Bearer).
+  description: |
+    API REST del CRM. Todas las rutas usan una API key (Ajustes → WhatsApp y API → Nueva API key) en el header
+    `Authorization: Bearer <API_KEY>`. Las respuestas son JSON: `{ "data": … }` cuando todo sale bien y
+    `{ "error": "mensaje" }` cuando no. Los errores de validación (422) incluyen `details` con cada campo.
+    Límite: 120 peticiones por minuto por key (headers `X-RateLimit-*`; al pasarlo, 429 con `Retry-After`).
+    Lo que se crea o cambia por la API dispara las mismas automatizaciones y webhooks que la interfaz.
 servers:
   - url: https://TU-DOMINIO/api/v1
 security:
   - bearerAuth: []
+tags:
+  - { name: Contactos }
+  - { name: Oportunidades }
+  - { name: Mensajes }
+  - { name: Cuentas de cobro }
 components:
   securitySchemes:
-    bearerAuth: { type: http, scheme: bearer }
+    bearerAuth: { type: http, scheme: bearer, description: "API key que empieza por crm_" }
+  parameters:
+    Id: { in: path, name: id, required: true, schema: { type: string } }
+  responses:
+    Unauthorized:
+      description: Falta la API key, no es válida o fue revocada
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' }, example: { error: "Falta la API key o no es válida. Envía el header Authorization: Bearer <API_KEY>." } } }
+    NotFound:
+      description: No encontrado
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' }, example: { error: Contacto no encontrado } } }
+    Invalid:
+      description: Datos inválidos (el primer problema en `error`, todos en `details`)
+      content: { application/json: { schema: { $ref: '#/components/schemas/ValidationError' } } }
+    BadJson:
+      description: El body no es un objeto JSON válido
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' }, example: { error: El body no es un JSON válido } } }
+    TooManyRequests:
+      description: Se pasó el límite de peticiones por minuto
+      headers:
+        Retry-After: { schema: { type: integer }, description: Segundos para volver a intentar }
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
   schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+    ValidationError:
+      type: object
+      required: [error, details]
+      properties:
+        error: { type: string, example: "email: Correo no válido" }
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string, example: email }
+              message: { type: string, example: Correo no válido }
     Stage:
       type: string
       enum: [PROSPECT, PROPOSAL_SENT, NEGOTIATION, ACTIVE_CLIENT, LOST]
+      description: También acepta la etiqueta en español ("Negociación", "Cliente activo"…).
+    Service:
+      type: string
+      enum: [SEO técnico, SEO local, Contenidos / blog, Auditoría SEO, SEO para IA (GEO)]
     Contact:
       type: object
       required: [id, name]
       properties:
         id: { type: string }
         name: { type: string }
-        company: { type: string }
-        phone: { type: string, description: E.164, ej. +573001234567 }
-        email: { type: string, format: email }
-        service: { type: string }
+        company: { type: [string, 'null'] }
+        phone: { type: [string, 'null'], description: "WhatsApp en E.164, ej. +573001234567" }
+        email: { type: [string, 'null'], format: email }
+        service: { oneOf: [{ $ref: '#/components/schemas/Service' }, { type: 'null' }] }
         tags: { type: array, items: { type: string } }
-        monthlyValue: { type: integer, description: COP }
+        monthlyValue: { type: integer, description: Valor mensual en COP }
+        source: { type: [string, 'null'], description: "manual | api | whatsapp | app_sync" }
         createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
     ContactInput:
       type: object
       required: [name]
       properties:
-        name: { type: string }
-        company: { type: string }
-        phone: { type: string }
-        email: { type: string }
-        service: { type: string }
-        tags: { type: array, items: { type: string } }
-        monthlyValue: { type: integer }
+        name: { type: string, maxLength: 120 }
+        company: { type: [string, 'null'] }
+        phone: { type: [string, 'null'], description: "Se normaliza a E.164; sin indicativo se asume Colombia (+57)" }
+        email: { type: [string, 'null'] }
+        service: { oneOf: [{ $ref: '#/components/schemas/Service' }, { type: 'null' }] }
+        tags: { type: array, items: { type: string }, description: "En PATCH reemplaza la lista completa" }
+        monthlyValue: { type: integer, minimum: 0 }
+      example: { name: Mariana López, company: Spa Bienestar, phone: "+57 300 555 0199", email: mariana@ejemplo.co, service: SEO local, tags: [lead, web] }
     Deal:
       type: object
       properties:
@@ -45,14 +99,30 @@ components:
         contactId: { type: string }
         title: { type: string }
         stage: { $ref: '#/components/schemas/Stage' }
-        value: { type: integer }
+        stageLabel: { type: string, example: Negociación }
+        value: { type: integer, description: COP }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Message:
+      type: object
+      properties:
+        id: { type: string }
+        channel: { type: string, enum: [WHATSAPP, FACEBOOK, INSTAGRAM, TIKTOK] }
+        direction: { type: string, enum: [IN, OUT] }
+        via: { type: [string, 'null'], enum: [CRM, APP, AUTOMATION, HISTORY, null], description: "Origen de un mensaje saliente" }
+        type: { type: string, example: text }
+        text: { type: [string, 'null'] }
+        status: { type: string, enum: [RECEIVED, QUEUED, SENT, DELIVERED, READ, FAILED] }
+        wamid: { type: [string, 'null'] }
+        error: { type: [string, 'null'] }
+        sentAt: { type: string, format: date-time }
     InvoiceItem:
       type: object
       required: [description, quantity, unitPrice]
       properties:
         description: { type: string }
         quantity: { type: integer, minimum: 1 }
-        unitPrice: { type: integer, minimum: 0 }
+        unitPrice: { type: integer, minimum: 0, description: COP }
     Invoice:
       type: object
       properties:
@@ -61,58 +131,138 @@ components:
         contactId: { type: string }
         issueDate: { type: string, format: date }
         dueDate: { type: string, format: date }
-        status: { type: string, enum: [DRAFT, SENT, PAID, OVERDUE] }
+        status: { type: string, enum: [DRAFT, SENT, PAID, OVERDUE], description: "Borrador, Pendiente, Pagada, Vencida" }
+        sentAt: { type: [string, 'null'], format: date-time }
+        paidAt: { type: [string, 'null'], format: date }
+        notes: { type: [string, 'null'] }
         items: { type: array, items: { $ref: '#/components/schemas/InvoiceItem' } }
-        total: { type: integer }
-    Error:
+        total: { type: integer, description: COP }
+    WebhookEvent:
       type: object
+      required: [id, type, createdAt, data]
       properties:
-        error: { type: string }
+        id: { type: string, example: evt_cmwb2x0q10003 }
+        type: { type: string, enum: [contact.created, message.received, message.sent, deal.stage_changed, invoice.paid, invoice.overdue, ping] }
+        createdAt: { type: string, format: date-time, example: "2026-11-06T20:00:00-05:00" }
+        data:
+          type: object
+          description: Datos del evento (siempre `contactId`) y `contact` con nombre, empresa, teléfono, correo, servicio y etiquetas.
 paths:
   /contacts:
     get:
-      summary: Listar contactos
+      tags: [Contactos]
+      summary: Listar o buscar contactos
+      description: 50 por página, los más nuevos primero. `q` busca en nombre, empresa, teléfono, correo o una etiqueta exacta.
       parameters:
         - { in: query, name: q, schema: { type: string } }
-        - { in: query, name: tag, schema: { type: string } }
+        - { in: query, name: tag, schema: { type: string }, description: Etiqueta, sin distinguir mayúsculas }
         - { in: query, name: page, schema: { type: integer, default: 1 } }
       responses:
-        '200': { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Contact' } }, total: { type: integer } } } } } }
-        '401': { description: Sin API key válida, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Contact' } }
+                  total: { type: integer }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
     post:
-      summary: Crear contacto (emite contact.created)
+      tags: [Contactos]
+      summary: Crear contacto
+      description: Crea el contacto, su oportunidad en Prospecto y su conversación, y emite `contact.created` (dispara la bienvenida si está activa).
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ContactInput' } } } }
       responses:
         '201': { description: Creado, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Contact' } } } } } }
-        '409': { description: Ya existe un contacto con ese teléfono }
-        '422': { description: Datos inválidos }
+        '400': { $ref: '#/components/responses/BadJson' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { description: Ya existe un contacto con ese WhatsApp, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { $ref: '#/components/responses/Invalid' }
   /contacts/{id}:
-    parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
-    get: { summary: Detalle, responses: { '200': { description: OK }, '404': { description: No encontrado } } }
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    get:
+      tags: [Contactos]
+      summary: Detalle de un contacto
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Contact' } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
     patch:
+      tags: [Contactos]
       summary: Actualizar contacto
-      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/ContactInput' } } } }
-      responses: { '200': { description: OK }, '404': { description: No encontrado } }
-    delete: { summary: Eliminar, responses: { '204': { description: Eliminado } } }
+      description: Solo cambian los campos que envías. `tags` reemplaza la lista completa; `null` borra un campo opcional.
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ContactInput' }, example: { tags: [cliente, vip] } } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Contact' } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: Ya existe otro contacto con ese WhatsApp }
+        '422': { $ref: '#/components/responses/Invalid' }
+    delete:
+      tags: [Contactos]
+      summary: Eliminar contacto
+      description: Borra el contacto con sus oportunidades, conversación, notas e historial.
+      responses:
+        '204': { description: Eliminado }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: Tiene cuentas de cobro (son registros de cobro y no se borran) }
   /deals:
     get:
+      tags: [Oportunidades]
       summary: Listar oportunidades
-      parameters: [{ in: query, name: stage, schema: { $ref: '#/components/schemas/Stage' } }]
-      responses: { '200': { description: OK } }
+      parameters:
+        - { in: query, name: stage, schema: { $ref: '#/components/schemas/Stage' } }
+        - { in: query, name: contactId, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Deal' } }, total: { type: integer } } } } } }
+        '422': { $ref: '#/components/responses/Invalid' }
     post:
+      tags: [Oportunidades]
       summary: Crear oportunidad
-      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/Deal' } } } }
-      responses: { '201': { description: Creada } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contactId, title]
+              properties:
+                contactId: { type: string }
+                title: { type: string }
+                stage: { $ref: '#/components/schemas/Stage' }
+                value: { type: integer, minimum: 0 }
+            example: { contactId: "<id del contacto>", title: Auditoría SEO, value: 800000 }
+      responses:
+        '201': { description: Creada, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Deal' } } } } } }
+        '404': { description: Contacto no encontrado }
+        '422': { $ref: '#/components/responses/Invalid' }
   /deals/{id}:
-    parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+    parameters: [{ $ref: '#/components/parameters/Id' }]
     patch:
-      summary: Cambiar etapa o valor (emite deal.stage_changed)
-      requestBody: { content: { application/json: { schema: { type: object, properties: { stage: { $ref: '#/components/schemas/Stage' }, value: { type: integer } } } } } }
-      responses: { '200': { description: OK }, '422': { description: Etapa inválida } }
+      tags: [Oportunidades]
+      summary: Cambiar etapa, valor o título
+      description: Un cambio de etapa emite `deal.stage_changed` (igual que el Kanban).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, properties: { stage: { $ref: '#/components/schemas/Stage' }, value: { type: integer }, title: { type: string } } }
+            example: { stage: Negociación }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Deal' } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Invalid' }
   /messages:
     post:
-      summary: Enviar mensaje de WhatsApp de texto
+      tags: [Mensajes]
+      summary: Enviar un WhatsApp de texto
+      description: |
+        Envía por la Cloud API y espera la respuesta de Meta. Solo dentro de la ventana de 24 h (el cliente escribió
+        en las últimas 24 horas); fuera de ella Meta solo permite plantillas aprobadas. El contacto debe existir.
       requestBody:
+        required: true
         content:
           application/json:
             schema:
@@ -120,24 +270,42 @@ paths:
               required: [text]
               properties:
                 contactId: { type: string }
-                to: { type: string, description: Teléfono E.164 si no se pasa contactId }
-                text: { type: string }
+                to: { type: string, description: Teléfono E.164 de un contacto existente, si no se pasa contactId }
+                text: { type: string, maxLength: 4096 }
+            example: { contactId: "<id del contacto>", text: Hola, te escribo desde la API del CRM. }
       responses:
-        '201': { description: Enviado, content: { application/json: { schema: { type: object, properties: { data: { type: object, properties: { id: { type: string }, wamid: { type: string } } } } } } } }
-        '409': { description: WhatsApp no conectado o fuera de la ventana de 24 h (usar plantilla) }
+        '201': { description: Enviado, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Message' } } } } } }
+        '404': { description: Contacto no encontrado }
+        '409': { description: WhatsApp no conectado o fuera de la ventana de 24 h (usa una plantilla) }
+        '422': { $ref: '#/components/responses/Invalid' }
+        '502': { description: Meta rechazó el mensaje (el error de Meta va en `error`) }
   /conversations/{contactId}/messages:
     get:
-      summary: Historial de mensajes
-      parameters: [{ in: path, name: contactId, required: true, schema: { type: string } }]
-      responses: { '200': { description: OK } }
+      tags: [Mensajes]
+      summary: Historial de mensajes de un contacto
+      description: Los últimos mensajes del hilo (todos los canales), del más antiguo al más nuevo.
+      parameters:
+        - { in: path, name: contactId, required: true, schema: { type: string } }
+        - { in: query, name: limit, schema: { type: integer, default: 100, maximum: 300 } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Message' } }, total: { type: integer } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
   /invoices:
     get:
+      tags: [Cuentas de cobro]
       summary: Listar cuentas de cobro
-      parameters: [{ in: query, name: status, schema: { type: string, enum: [DRAFT, SENT, PAID, OVERDUE] } }]
-      responses: { '200': { description: OK } }
+      parameters:
+        - { in: query, name: status, schema: { type: string, enum: [DRAFT, SENT, PAID, OVERDUE] } }
+        - { in: query, name: contactId, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Invoice' } }, total: { type: integer } } } } } }
+        '422': { $ref: '#/components/responses/Invalid' }
     post:
+      tags: [Cuentas de cobro]
       summary: Crear cuenta de cobro (borrador)
+      description: Numeración automática CC-###. `issueDate` por defecto es hoy (Bogotá) y `dueDate`, 15 días después.
       requestBody:
+        required: true
         content:
           application/json:
             schema:
@@ -147,20 +315,60 @@ paths:
                 contactId: { type: string }
                 issueDate: { type: string, format: date }
                 dueDate: { type: string, format: date }
-                items: { type: array, items: { $ref: '#/components/schemas/InvoiceItem' } }
-      responses: { '201': { description: Creada, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Invoice' } } } } } } }
+                notes: { type: string }
+                items: { type: array, minItems: 1, items: { $ref: '#/components/schemas/InvoiceItem' } }
+            example: { contactId: "<id del contacto>", items: [{ description: SEO local · noviembre, quantity: 1, unitPrice: 1500000 }] }
+      responses:
+        '201': { description: Creada, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Invoice' } } } } } }
+        '404': { description: Cliente no encontrado }
+        '422': { $ref: '#/components/responses/Invalid' }
   /invoices/{id}/send:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
     post:
+      tags: [Cuentas de cobro]
       summary: Enviar por WhatsApp (texto + PDF)
-      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
-      responses: { '200': { description: Enviada } }
+      description: Pone en cola el mensaje y el PDF, y pasa un borrador a Pendiente. Los mensajes salen justo después de la respuesta.
+      responses:
+        '200': { description: Enviada, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Invoice' } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: Ya pagada, WhatsApp no conectado o fuera de la ventana de 24 h }
+        '422': { description: El contacto no tiene número de WhatsApp }
   /invoices/{id}/pay:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
     post:
-      summary: Marcar como pagada (emite invoice.paid)
-      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
-      responses: { '200': { description: OK }, '409': { description: Ya estaba pagada } }
+      tags: [Cuentas de cobro]
+      summary: Marcar como pagada
+      description: Emite `invoice.paid`. El body es opcional; sin `paidAt` se usa la fecha de hoy (Bogotá).
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { paidAt: { type: string, format: date } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Invoice' } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: Ya estaba pagada }
+        '422': { description: Fecha inválida o futura }
   /invoices/{id}/pdf:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
     get:
-      summary: Descargar PDF
-      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
-      responses: { '200': { description: PDF, content: { application/pdf: {} } } }
+      tags: [Cuentas de cobro]
+      summary: Descargar el PDF
+      responses:
+        '200': { description: PDF, content: { application/pdf: {} } }
+        '404': { $ref: '#/components/responses/NotFound' }
+webhooks:
+  evento:
+    post:
+      summary: Webhook saliente del CRM
+      description: |
+        El CRM hace un POST a cada URL suscrita (Ajustes → Webhooks salientes) con los headers `X-CRM-Event`
+        (tipo de evento), `X-CRM-Delivery` (id de la entrega) y `X-CRM-Signature: sha256=<HMAC-SHA256 del body
+        con el secreto del webhook>`. Responde 2xx en menos de 10 s; si no, se reintenta a los 1 min, 5 min,
+        30 min, 2 h y 12 h. Una misma entrega puede llegar más de una vez: usa `id` para no procesarla dos veces.
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WebhookEvent' }
+            example: { id: evt_cmwb2x0q10003, type: invoice.paid, createdAt: "2026-11-06T20:00:00-05:00", data: { invoiceId: cmwb2x0q1, contactId: cmwb1a2b3, number: CC-004, total: 1800000, paidAt: "2026-11-06", contact: { id: cmwb1a2b3, name: Andrea Morales, company: Café La Montaña, phone: "+573005550101", email: null, service: SEO local, tags: [cliente] } } }
+      responses:
+        '200': { description: Recibido }
