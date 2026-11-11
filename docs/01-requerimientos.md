@@ -50,7 +50,8 @@ por cobrar (pendientes + vencidas) con número de vencidas, mensajes sin leer. B
   si llega un mensaje de una identidad desconocida se crea el contacto y luego se puede **fusionar** con uno existente.
 - Facebook e Instagram usan la misma app de Meta (Messenger Platform / Instagram Messaging API; Instagram requiere cuenta profesional
   vinculada a una página de Facebook). Ventana de 24 h similar a WhatsApp.
-- TikTok: **pendiente verificar** disponibilidad de su API de mensajería para empresas (acceso restringido / requiere aprobación).
+- TikTok: **verificado (nov 2026), no se construye por ahora.** Su Business Messaging API exige revisión y aprobación de TikTok y
+  seguía en beta. Ver docs/06-facebook-instagram.md.
 - Se construye en la Fase 4b, después de WhatsApp. El modelo de datos queda preparado desde la Fase 0.
 
 ### 5. Cuentas de cobro

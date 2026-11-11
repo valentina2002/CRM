@@ -109,6 +109,82 @@ export async function deleteContact(id: string) {
   return contact;
 }
 
+/**
+ * Merges `sourceId` INTO `targetId`: channel identities, messages, deals, tasks, notes, history and cuentas de
+ * cobro move to the target; tags are joined; empty fields of the target are filled from the source; then the
+ * source is deleted. Typical use: someone who was already a client writes for the first time on Instagram and
+ * arrives as a new contact (Meta gives no phone number there).
+ */
+export async function mergeContacts(sourceId: string, targetId: string) {
+  if (sourceId === targetId) throw new DomainError("Elige otro contacto para fusionar");
+  return db.$transaction(
+    async (tx) => {
+      const [source, target] = await Promise.all([
+        tx.contact.findUnique({ where: { id: sourceId }, include: { conversation: true, channels: true } }),
+        tx.contact.findUnique({ where: { id: targetId }, include: { conversation: true, _count: { select: { deals: true } } } }),
+      ]);
+      if (!source || !target) throw new DomainError("Contacto no encontrado", "not_found");
+
+      // The automatic empty "Nueva oportunidad (…)" of a contact created by an incoming message is noise
+      // once it joins a contact that already has its own deals.
+      if (target._count.deals > 0) {
+        await tx.deal.deleteMany({ where: { contactId: sourceId, stage: "PROSPECT", value: 0, title: { startsWith: "Nueva oportunidad" } } });
+      }
+      await tx.contactChannel.updateMany({ where: { contactId: sourceId }, data: { contactId: targetId } });
+      await tx.deal.updateMany({ where: { contactId: sourceId }, data: { contactId: targetId } });
+      await tx.task.updateMany({ where: { contactId: sourceId }, data: { contactId: targetId } });
+      await tx.note.updateMany({ where: { contactId: sourceId }, data: { contactId: targetId } });
+      await tx.invoice.updateMany({ where: { contactId: sourceId }, data: { contactId: targetId } });
+      await tx.activityLog.updateMany({ where: { contactId: sourceId }, data: { contactId: targetId } });
+
+      const from = source.conversation;
+      const into = target.conversation;
+      if (from && !into) {
+        await tx.conversation.update({ where: { id: from.id }, data: { contactId: targetId } });
+      } else if (from && into) {
+        const latest = (a: Date | null, b: Date | null) => (a && b ? (a > b ? a : b) : (a ?? b));
+        const sourceIsNewer = Boolean(from.lastMessageAt && (!into.lastMessageAt || from.lastMessageAt > into.lastMessageAt));
+        await tx.message.updateMany({ where: { conversationId: from.id }, data: { conversationId: into.id } });
+        await tx.conversation.update({
+          where: { id: into.id },
+          data: {
+            unread: into.unread + from.unread,
+            lastMessageAt: latest(into.lastMessageAt, from.lastMessageAt),
+            lastInboundAt: latest(into.lastInboundAt, from.lastInboundAt),
+            lastChannel: sourceIsNewer ? (from.lastChannel ?? into.lastChannel) : (into.lastChannel ?? from.lastChannel),
+          },
+        });
+        await tx.conversation.delete({ where: { id: from.id } });
+      }
+
+      const known = new Set(target.tags.map((t) => t.toLocaleLowerCase("es-CO")));
+      const tags = [...target.tags, ...source.tags.filter((t) => !known.has(t.toLocaleLowerCase("es-CO")))];
+      const takePhone = !target.phone && source.phone ? source.phone : null;
+      await tx.contact.delete({ where: { id: sourceId } }); // frees the unique phone before the target takes it
+      const merged = await tx.contact.update({
+        where: { id: targetId },
+        data: {
+          tags,
+          phone: takePhone ?? target.phone,
+          company: target.company ?? source.company,
+          email: target.email ?? source.email,
+          service: target.service ?? source.service,
+          monthlyValue: target.monthlyValue || source.monthlyValue,
+        },
+      });
+      const channels = [...new Set(source.channels.map((c) => c.channel))];
+      await logActivity(tx, {
+        type: "contact.merged",
+        text: `Contacto fusionado: ${source.name} ahora es parte de ${merged.name}`,
+        contactId: targetId,
+        data: { mergedName: source.name, channels },
+      });
+      return merged;
+    },
+    { timeout: 30_000 },
+  );
+}
+
 export async function addTag(contactId: string, tag: string) {
   const contact = await db.contact.findUnique({ where: { id: contactId }, select: { tags: true } });
   if (!contact) throw new DomainError("Contacto no encontrado", "not_found");

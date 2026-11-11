@@ -4,23 +4,30 @@ import { runAutomationsForEvent, type EngineEvent, type EnginePorts } from "@/li
 import { STAGE_LABEL } from "@/lib/constants";
 import { db } from "@/lib/db";
 import { logActivity, type Tx } from "./core";
+import { replyChannel } from "./reply-channel";
 import { queueWebhookDeliveries } from "./webhooks-out";
 
 /** DB implementation of the engine ports. No emit() here: automation actions never create events. */
 function dbPorts(tx: Tx): EnginePorts {
   return {
-    loadContact: (id) => tx.contact.findUnique({ where: { id }, select: { id: true, name: true, company: true, phone: true } }),
+    async loadContact(id) {
+      const c = await tx.contact.findUnique({ where: { id }, select: { id: true, name: true, company: true, phone: true, channels: { select: { channel: true } } } });
+      if (!c) return null;
+      return { id: c.id, name: c.name, company: c.company, phone: c.phone, reachable: c.channels.some((ch) => ch.channel === "FACEBOOK" || ch.channel === "INSTAGRAM") };
+    },
 
     async sendWhatsApp(contact, text) {
-      // Saved as QUEUED in the unified thread; real delivery through the Cloud API arrives in Phase 4.
+      // Saved as QUEUED in the unified thread; the outbox of that channel delivers it. It goes out on the channel
+      // the customer last wrote on (Facebook / Instagram) when they have an identity there, otherwise on WhatsApp.
       const now = new Date();
       const conversation = await tx.conversation.upsert({
         where: { contactId: contact.id },
-        update: { lastMessageAt: now, lastChannel: "WHATSAPP" },
+        update: { lastMessageAt: now },
         create: { contactId: contact.id, lastMessageAt: now, lastChannel: "WHATSAPP" },
       });
+      const channel = await replyChannel(tx, contact.id, conversation.lastChannel, Boolean(contact.phone));
       await tx.message.create({
-        data: { conversationId: conversation.id, channel: "WHATSAPP", direction: "OUT", via: "AUTOMATION", body: text, status: "QUEUED", sentAt: now },
+        data: { conversationId: conversation.id, channel, direction: "OUT", via: "AUTOMATION", body: text, status: "QUEUED", sentAt: now },
       });
     },
 

@@ -8,9 +8,10 @@ import { markReadAction, retryMessageAction } from "@/app/(app)/conversaciones/a
 import { Avatar } from "@/components/crm/chip";
 import { useAction } from "@/components/crm/use-action";
 import { Input } from "@/components/ui/input";
-import type { MessageStatus, MessageVia } from "@/generated/prisma/enums";
+import type { Channel, MessageStatus, MessageVia } from "@/generated/prisma/enums";
 import { formatDate, formatShortMoment, formatTime, initials, todayISO } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { ChannelMark } from "./channel-badge";
 
 /** Refreshes server data every few seconds while the tab is visible (new messages, delivery ticks). */
 export function AutoRefresh({ ms = 5000 }: { ms?: number }) {
@@ -42,7 +43,7 @@ export type ListItem = {
   name: string;
   company: string | null;
   unread: number;
-  last: { body: string | null; direction: "IN" | "OUT"; sentAt: Date } | null;
+  last: { body: string | null; direction: "IN" | "OUT"; sentAt: Date; channel: Channel } | null;
 };
 
 const fold = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
@@ -70,8 +71,9 @@ export function ConversationList({ items, activeId }: { items: ListItem[]; activ
             <Avatar initials={initials(c.name)} />
             <div className="min-w-0 flex-1">
               <div className="truncate font-semibold">{c.name}</div>
-              <div className="truncate text-[12.5px] text-muted-foreground">
-                {c.last ? `${c.last.direction === "OUT" ? "Tú: " : ""}${c.last.body ?? ""}` : "Sin mensajes"}
+              <div className="flex items-center gap-1 text-[12.5px] text-muted-foreground">
+                {c.last ? <ChannelMark channel={c.last.channel} /> : null}
+                <span className="truncate">{c.last ? `${c.last.direction === "OUT" ? "Tú: " : ""}${c.last.body ?? ""}` : "Sin mensajes"}</span>
               </div>
             </div>
             {c.unread ? (
@@ -88,6 +90,7 @@ export function ConversationList({ items, activeId }: { items: ListItem[]; activ
 
 export type ThreadMessage = {
   id: string;
+  channel: Channel;
   direction: "IN" | "OUT";
   via: MessageVia | null;
   status: MessageStatus;
@@ -103,6 +106,14 @@ const VIA_LABEL: Record<MessageVia, { text: string; className: string }> = {
   AUTOMATION: { text: "⚡ Automatización", className: "text-[#7b3fc4]" },
   HISTORY: { text: "🕘 Historial importado", className: "text-muted-foreground" },
 };
+
+/** Where an outgoing message was written, worded for its channel. */
+function viaText(via: MessageVia, channel: Channel): string {
+  if (channel === "FACEBOOK" && via === "APP") return "📱 Bandeja de Facebook";
+  if (channel === "INSTAGRAM" && via === "APP") return "📱 App de Instagram";
+  if (channel !== "WHATSAPP" && via === "CRM") return "💻 CRM";
+  return VIA_LABEL[via].text;
+}
 
 function StatusIcon({ status }: { status: MessageStatus }) {
   switch (status) {
@@ -149,9 +160,10 @@ export function MessageThread({ messages }: { messages: ThreadMessage[] }) {
                 {m.body}
               </div>
               <div className="mt-[3px] flex flex-wrap items-center justify-end gap-1 text-[11px] text-[#6d7686]">
+                <ChannelMark channel={m.channel} />
                 <span>{formatTime(m.sentAt)}</span>
                 {m.edited ? <span>· editado</span> : null}
-                {me && m.via ? <span className={cn("font-semibold", VIA_LABEL[m.via].className)}>· {VIA_LABEL[m.via].text}</span> : null}
+                {me && m.via ? <span className={cn("font-semibold", VIA_LABEL[m.via].className)}>· {viaText(m.via, m.channel)}</span> : null}
                 {me ? (
                   <span className="flex items-center gap-0.5">
                     · <StatusIcon status={m.status} />

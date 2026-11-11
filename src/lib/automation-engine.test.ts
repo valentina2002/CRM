@@ -41,7 +41,7 @@ function makeWorld() {
   const ports: EnginePorts = {
     async loadContact(id) {
       const c = contacts.get(id);
-      return c ? { id: c.id, name: c.name, company: c.company, phone: c.phone } : null;
+      return c ? { id: c.id, name: c.name, company: c.company, phone: c.phone, reachable: c.reachable } : null;
     },
     async sendWhatsApp(c, text) {
       messages.push({ contactId: c.id, text });
@@ -149,6 +149,18 @@ describe("actions", () => {
     expect(w.runs[0].ok).toBe(false);
     expect(w.runs[0].detail.actions.map((a) => a.ok)).toEqual([false, true]);
     expect(w.runs[0].detail.actions[0].message).toBe("El contacto no tiene WhatsApp");
+  });
+
+  it("send_whatsapp reaches a contact without phone that wrote on Facebook or Instagram", async () => {
+    const w = makeWorld();
+    w.contacts.get("c2")!.reachable = true;
+    await runAutomationsForEvent(
+      { id: "e1", type: "message.received", payload: { contactId: "c2", text: "¿Qué precio tiene?" } },
+      [auto({ trigger: "MESSAGE_RECEIVED", condition: "precio", actions: [{ type: "send_whatsapp", value: "Hola {nombre}, te cuento" }] })],
+      w.ports,
+    );
+    expect(w.messages).toEqual([{ contactId: "c2", text: "Hola Paula, te cuento" }]);
+    expect(w.runs[0].ok).toBe(true);
   });
 
   it("add_tag adds once (case-insensitive)", async () => {

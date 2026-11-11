@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { Stage } from "@/generated/prisma/enums";
 import { fail, runAction } from "@/lib/action-result";
 import { requireUser } from "@/lib/session";
-import { addTag, createContact, deleteContact, removeTag, updateContact } from "@/lib/services/contacts";
+import { addTag, createContact, deleteContact, listContactOptions, mergeContacts, removeTag, updateContact } from "@/lib/services/contacts";
 import { changeDealStage, createDeal, deleteDeal, updateDeal } from "@/lib/services/deals";
 import { addNote, createTask, deleteNote, deleteTask, toggleTask, updateNote } from "@/lib/services/tasks-notes";
 import {
@@ -37,6 +37,22 @@ export async function deleteContactAction(contactId: string) {
   if (!id.safeParse(contactId).success) return fail("Contacto inválido");
   return runAction(async () => {
     await deleteContact(contactId);
+  });
+}
+
+/** Other contacts this one can be merged into (loaded when the dialog opens). */
+export async function listMergeTargetsAction(contactId: string) {
+  await requireUser();
+  const options = await listContactOptions();
+  return options.filter((c) => c.id !== contactId);
+}
+
+/** Merges `sourceId` into `targetId` (the source disappears). */
+export async function mergeContactsAction(sourceId: string, targetId: string) {
+  if (!id.safeParse(sourceId).success || !id.safeParse(targetId).success) return fail("Contacto inválido");
+  return runAction(async () => {
+    const merged = await mergeContacts(sourceId, targetId);
+    return { id: merged.id, name: merged.name };
   });
 }
 

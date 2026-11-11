@@ -13,6 +13,7 @@ El prototipo funcional (HTML único, datos en localStorage) está en `prototipo/
 - `docs/02-arquitectura.md` — stack, estructura de carpetas, decisiones
 - `docs/03-whatsapp-coexistencia.md` — integración con Meta (Embedded Signup, webhooks `messages`, `smb_message_echoes`, `history`, `smb_app_state_sync`)
 - `docs/04-api.md` + `docs/openapi.yaml` — contrato de la API REST y webhooks salientes
+- `docs/06-facebook-instagram.md` — Messenger + Instagram (Fase 4b): qué configura Valentina, reglas y lo que falta verificar
 - `docs/05-plan-de-fases.md` — orden de trabajo; trabaja **una fase a la vez**
 - `prisma/schema.prisma` — modelo de datos inicial (ajústalo si hace falta, explicando por qué)
 
@@ -125,6 +126,24 @@ Next.js (App Router) + TypeScript estricto · Tailwind CSS + shadcn/ui · Postgr
   falla si una ruta de `src/app/api/v1` no está documentada o al revés: al agregar una ruta, actualiza el YAML.
 - Ajustes → "API REST del CRM" (crear/revocar keys) y "Webhooks salientes" (crear, pausar, probar con `ping`, eliminar,
   últimas entregas). La página tiene un probador de la API como el del prototipo.
+
+## Notas técnicas (Fase 4b · Facebook e Instagram)
+- Camino "Facebook Login": un token de página envía/recibe para la página y su Instagram profesional vinculado
+  (`src/lib/meta/page-graph.ts`, reutiliza `graph()` de `src/lib/whatsapp/graph.ts`). Conexión manual (ID de página + token) en
+  `src/lib/services/social-account.ts`: `ChannelAccount` FACEBOOK (externalId = page id) e INSTAGRAM (externalId = ig id,
+  senderId = page id), mismo token cifrado. TikTok no se construyó (API con aprobación de TikTok, ver docs/06).
+- Webhooks en `/api/webhooks/meta` (reexporta el handler de WhatsApp: misma firma y `WebhookInbox`). `processWebhookInbox()`
+  enruta por `payload.object`: `page`/`instagram` → `applySocialPayload()` (`social-inbox.ts`), el resto → WhatsApp.
+  Parser puro `src/lib/meta/messaging-parser.ts` (fixtures `tests/fixtures/meta/`). Idempotente por `(channel, externalId=mid)`.
+- Identidades en `ContactChannel` (PSID / IGSID + `handle`). Quien escribe por primera vez es un contacto nuevo (Meta no da
+  teléfono); "Fusionar" (`mergeContacts()` en `contacts.ts`, `MergeContactDialog`) lo une a uno existente.
+- Ventana de 24 h por canal: `lastInboundOn(conversationId, channel)` en `social-outbox.ts` (para WhatsApp sigue
+  `Conversation.lastInboundAt`). Ojo: filtrar `via` con `OR: [{ via: null }, { via: { not: "HISTORY" } }]` (NULL en SQL).
+- Envío: `processSocialOutbox()` (texto, máx. 1000 caracteres) corre en `flushOutgoing()` junto al de WhatsApp.
+  `sendTextMessage(contactId, text, origin, channel)`. `getThread()` devuelve `channels` (con ventana) y `defaultChannel`.
+- Automatizaciones: "Enviar WhatsApp" usa `replyChannel()` (último canal si es FB/IG con identidad; si no WhatsApp).
+  `EngineContact.reachable` permite responder a contactos sin teléfono.
+- Simulador de desarrollo con selector de canal (pasa por el parser real). UI: `ChannelMark` / `ChannelBadge`.
 
 ## Reglas
 - Idioma: **interfaz, textos y mensajes en español (Colombia)**. Código, nombres de variables y commits en inglés.

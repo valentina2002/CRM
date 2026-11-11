@@ -6,25 +6,28 @@ import { PageHeader } from "@/components/page-header";
 import { PageSkeleton } from "@/components/page-skeleton";
 import { CopyButton, CreateApiKeyDialog, CreateWebhookDialog, RevokeApiKeyButton, WebhookControls } from "@/components/settings/api-settings";
 import { MethodBadge } from "@/components/settings/method-badge";
+import { FacebookConnectForm, SocialDisconnectButton } from "@/components/settings/social-connect";
 import { CopyField, DisconnectButton, EmbeddedSignupButton, ManualConnectForm, SyncButton } from "@/components/settings/whatsapp-connect";
 import { Input } from "@/components/ui/input";
 import { rateLimitPerMinute } from "@/lib/api/rate-limit";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { listApiKeys } from "@/lib/services/api-keys";
+import { getSocialAccounts } from "@/lib/services/social-account";
 import { listRecentDeliveries, listWebhookEndpoints } from "@/lib/services/webhooks-out";
 import { getWhatsAppAccount } from "@/lib/services/whatsapp-account";
 import { requireUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { deliveryStatus } from "@/lib/webhooks/outgoing";
 
-export const metadata: Metadata = { title: "WhatsApp y API" };
+export const metadata: Metadata = { title: "Canales y API" };
 
 export default function AjustesPage() {
   return (
     <>
-      <PageHeader title="WhatsApp y API" subtitle="Conecta tu número con coexistencia y expón tu propia API para integrar otras herramientas." />
+      <PageHeader title="WhatsApp y API" subtitle="Conecta WhatsApp con coexistencia, Facebook e Instagram, y expón tu propia API para integrar otras herramientas." />
       <Suspense fallback={<PageSkeleton title="" />}>
         <Settings />
+        <SocialChannels />
         <ApiAndWebhooks />
       </Suspense>
     </>
@@ -177,6 +180,82 @@ async function Settings() {
             <li>Lo que envías desde el celular sigue siendo gratis; lo que envía el CRM usa la tarifa de la Cloud API. Envío máximo: 20 mensajes por segundo.</li>
             <li>El historial (hasta 6 meses) y los contactos se importan una sola vez, en las 24 h siguientes a conectar.</li>
           </ul>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+async function SocialChannels() {
+  await requireUser();
+  const social = await getSocialAccounts();
+  const appUrl = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  const hasSecret = Boolean(process.env.META_APP_SECRET);
+
+  return (
+    <div className="mt-4 grid items-start gap-4 lg:grid-cols-[1.4fr_1fr]">
+      <Card title="Facebook Messenger e Instagram">
+        <p className="-mt-1.5 mb-3 text-[12.5px] text-muted-foreground">
+          Los mensajes de tu página de Facebook y de tu cuenta profesional de Instagram llegan al mismo hilo del cliente, cada uno marcado con su canal. Sigues pudiendo
+          responder desde las apps: esas respuestas también aparecen aquí.
+        </p>
+        <ol className="mb-4">
+          <Step done={Boolean(social.facebook)} title="Página de Facebook">
+            {social.facebook ? (
+              <>
+                Conectada <strong className="text-foreground">{social.facebook.name}</strong> el {formatDateTime(social.facebook.connectedAt)} · ID {social.facebook.pageId}
+              </>
+            ) : (
+              "Conecta la página con su ID y un token de acceso de la página."
+            )}
+          </Step>
+          <Step done={Boolean(social.instagram)} warn={Boolean(social.facebook) && !social.instagram} title="Instagram">
+            {social.instagram ? (
+              <>
+                Conectado <strong className="text-foreground">{social.instagram.username}</strong> (se detecta solo, por estar vinculado a la página)
+              </>
+            ) : social.facebook ? (
+              "Esta página no tiene una cuenta profesional de Instagram vinculada. Vincúlala en Meta Business Suite y vuelve a conectar la página."
+            ) : (
+              "Se conecta junto con la página si tu cuenta profesional de Instagram está vinculada a ella."
+            )}
+          </Step>
+          <Step done={Boolean(social.facebook) && hasSecret} warn={Boolean(social.facebook) && !hasSecret} title="Webhooks suscritos">
+            En tu app de Meta usa la URL de abajo (y el mismo verify token de WhatsApp). En <strong>Messenger</strong> suscribe la página a <code>messages</code>,{" "}
+            <code>messaging_postbacks</code>, <code>message_deliveries</code>, <code>message_reads</code> y <code>message_echoes</code>; en <strong>Instagram</strong>, a{" "}
+            <code>messages</code> y <code>messaging_seen</code>.
+            {!hasSecret ? <span className="block text-warning">Falta META_APP_SECRET en el servidor: sin él se rechazan todos los webhooks (firma).</span> : null}
+          </Step>
+        </ol>
+        <CopyField label="URL del webhook de Messenger e Instagram (para Meta)" value={`${appUrl}/api/webhooks/meta`} />
+        <div className="mt-5 grid gap-3 border-t pt-4">
+          {social.facebook ? (
+            <SocialDisconnectButton />
+          ) : (
+            <details className="rounded-md border p-3" open>
+              <summary className="cursor-pointer text-[13px] font-semibold">Conectar con el ID de la página y su token</summary>
+              <div className="mt-3">
+                <FacebookConnectForm />
+              </div>
+            </details>
+          )}
+        </div>
+      </Card>
+
+      <div className="grid gap-4">
+        <Card title="Cómo funcionan estos canales">
+          <ul className="grid list-disc gap-1 pl-5 text-[13px] text-muted-foreground">
+            <li>Solo puedes responder durante las 24 horas siguientes al último mensaje del cliente. En estos canales no hay plantillas como en WhatsApp.</li>
+            <li>Meta no entrega el teléfono de quien escribe: un cliente que ya tenías llega como contacto nuevo. Únelos con “Fusionar” en su ficha.</li>
+            <li>El token necesita los permisos de mensajes de la página y de Instagram. Para escribirle a personas que no administran tu app, Meta exige aprobar la app.</li>
+            <li>Las respuestas automáticas salen por el último canal por el que te escribió el cliente.</li>
+          </ul>
+        </Card>
+        <Card title="TikTok">
+          <p className="text-[13px] text-muted-foreground">
+            Todavía no está disponible en el CRM. TikTok tiene una API de mensajes para empresas, pero el acceso es restringido: exige que TikTok apruebe la app en una
+            revisión propia. Si te interesa, se puede solicitar y agregar más adelante.
+          </p>
         </Card>
       </div>
     </div>

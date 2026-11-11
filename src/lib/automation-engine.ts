@@ -90,7 +90,8 @@ export function matches(automation: AutomationDef, event: EngineEvent): boolean 
 
 // ---------- execution ----------
 
-export type EngineContact = { id: string; name: string; company: string | null; phone: string | null };
+/** `reachable`: the contact can be written to on another channel (Facebook / Instagram) even without a phone. */
+export type EngineContact = { id: string; name: string; company: string | null; phone: string | null; reachable?: boolean };
 
 /** Side effects the engine may perform. Deliberately has no way to emit events. */
 export type EnginePorts = {
@@ -120,7 +121,7 @@ async function runAction(action: AutomationAction, contact: EngineContact, event
   try {
     switch (action.type) {
       case "send_whatsapp": {
-        if (!contact.phone) return { type: action.type, ok: false, message: "El contacto no tiene WhatsApp" };
+        if (!contact.phone && !contact.reachable) return { type: action.type, ok: false, message: "El contacto no tiene WhatsApp" };
         const text = fillTemplate(action.value, vars);
         await ports.sendWhatsApp(contact, text);
         return { type: action.type, ok: true, message: text };

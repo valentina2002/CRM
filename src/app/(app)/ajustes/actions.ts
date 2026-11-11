@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { fail, runAction } from "@/lib/action-result";
 import { createApiKey, revokeApiKey } from "@/lib/services/api-keys";
+import { connectFacebookPage, disconnectSocial } from "@/lib/services/social-account";
 import { createWebhookEndpoint, deleteWebhookEndpoint, sendTestWebhook, setWebhookEndpointActive } from "@/lib/services/webhooks-out";
 import { completeEmbeddedSignup, connectWhatsApp, disconnectWhatsApp, requestCoexistenceSync } from "@/lib/services/whatsapp-account";
 import { requireUser } from "@/lib/session";
@@ -43,6 +44,23 @@ export async function completeSignupAction(raw: unknown) {
     const phone = await completeEmbeddedSignup(parsed.data);
     return { displayPhone: phone.display_phone_number ?? null };
   });
+}
+
+const pageSchema = z.object({
+  pageId: metaId,
+  token: z.string().trim().min(20, "Pega el token de acceso de la página completo").max(1000),
+});
+
+/** Connects the Facebook Page (and its linked Instagram account) with a Page access token. */
+export async function connectFacebookAction(raw: unknown) {
+  await requireUser();
+  const parsed = pageSchema.safeParse(raw);
+  if (!parsed.success) return fail(firstError(parsed.error));
+  return runAction(() => connectFacebookPage(parsed.data));
+}
+
+export async function disconnectSocialAction() {
+  return runAction(() => disconnectSocial());
 }
 
 export async function requestSyncAction() {

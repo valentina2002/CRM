@@ -1,0 +1,28 @@
+{
+  "object": "page",
+  "entry": [{
+    "id": "110200300400500",
+    "time": 1762470100500,
+    "messaging": [{
+      "sender": { "id": "110200300400500" },
+      "recipient": { "id": "7100200300400501" },
+      "timestamp": 1762470100000,
+      "message": { "mid": "m_FB_ECHO_INBOX", "is_echo": true, "app_id": 263902037430900, "text": "Te respondo desde la bandeja de la página" }
+    }, {
+      "sender": { "id": "110200300400500" },
+      "recipient": { "id": "7100200300400501" },
+      "timestamp": 1762470101000,
+      "message": { "mid": "m_FB_ECHO_CRM", "is_echo": true, "app_id": 1234567890, "text": "Enviado desde el CRM" }
+    }, {
+      "sender": { "id": "7100200300400501" },
+      "recipient": { "id": "110200300400500" },
+      "timestamp": 1762470102000,
+      "delivery": { "mids": ["m_FB_ECHO_CRM"], "watermark": 1762470101500 }
+    }, {
+      "sender": { "id": "7100200300400501" },
+      "recipient": { "id": "110200300400500" },
+      "timestamp": 1762470103000,
+      "read": { "watermark": 1762470101500 }
+    }]
+  }]
+}

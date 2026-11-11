@@ -18,7 +18,8 @@ export class GraphError extends Error {
 
 type GraphOptions = { token: string; method?: "GET" | "POST" | "DELETE"; json?: unknown; form?: FormData; query?: Record<string, string> };
 
-async function graph<T>(path: string, { token, method = "GET", json, form, query }: GraphOptions): Promise<T> {
+/** Generic Graph API call (also used by the Messenger / Instagram client in src/lib/meta). */
+export async function graph<T>(path: string, { token, method = "GET", json, form, query }: GraphOptions): Promise<T> {
   const url = new URL(`${base()}/${path.replace(/^\//, "")}`);
   for (const [k, v] of Object.entries(query ?? {})) url.searchParams.set(k, v);
   const res = await fetch(url, {
