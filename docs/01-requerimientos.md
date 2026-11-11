@@ -66,8 +66,10 @@ por cobrar (pendientes + vencidas) con número de vencidas, mensajes sin leer. B
 ### 6. Automatizaciones
 - Disparadores: contacto creado · mensaje entrante (condición: contiene palabra clave) · cambio de etapa (condición: etapa) ·
   cuenta pagada · cuenta vencida.
-- Acciones (hasta N en orden): enviar WhatsApp (texto con variables `{nombre} {empresa} {factura} {valor}`), agregar etiqueta,
-  mover a etapa, crear tarea. Futuro: esperar X tiempo, enviar plantilla, webhook.
+- Acciones (hasta 8 en orden): enviar WhatsApp (texto con variables `{nombre} {empresa} {factura} {valor} {vence}`; sale por el
+  último canal del cliente), agregar etiqueta, mover a etapa, crear tarea, **esperar** X tiempo, **esperar hasta la fecha límite**
+  de la cuenta de cobro y **detener si…** (respondió / pagada / etapa). Futuro: enviar plantilla, webhook.
+- Disparadores agregados en la Fase 7: "Se envía una cuenta de cobro"; "Se crea un contacto" con filtro por origen.
 - Activar/pausar, contador de ejecuciones, historial de ejecuciones con resultado.
 - Las acciones no re-emiten eventos (evita bucles).
 
@@ -75,6 +77,12 @@ por cobrar (pendientes + vencidas) con número de vencidas, mensajes sin leer. B
 - Conectar WhatsApp con Embedded Signup en modo coexistencia (ver doc 03). Mostrar estado de cada paso.
 - API REST con API keys (crear, revocar, ver último uso). Documentación en `/docs/api` generada desde OpenAPI.
 - Webhooks salientes: URL + eventos; firma HMAC `X-CRM-Signature`; reintentos con backoff; log de entregas.
+
+### 8. Formularios y reportes (Fase 7)
+- Formularios de captura públicos (`/f/{id}` y HTML para la web): nombre, empresa, WhatsApp o correo, mensaje y autorización de
+  datos (Ley 1581 de 2012). Crea el contacto con origen "Formulario web" (o nota si ya existe) y dispara automatizaciones.
+- Reportes: origen y conversión de contactos, tasa de cierre, cobrado por mes/servicio/cliente, cartera por antigüedad, tiempo de respuesta.
+- Respuestas rápidas del chat editables.
 
 ## Criterios de aceptación clave
 1. Un mensaje enviado desde el celular aparece en el chat del CRM marcado "App WhatsApp Business" en < 10 s.

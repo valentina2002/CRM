@@ -54,3 +54,24 @@ API keys (hash), rutas según `docs/openapi.yaml`, rate limit, página `/docs/ap
 Postgres en Neon/Supabase, Vercel, variables de entorno, cron jobs, dominio, URL del webhook en Meta, checklist de seguridad.
 
 > Prepara el despliegue (Fase 6): guíame paso a paso para Vercel + Neon y configura los cron jobs.
+
+## Fase 7 · Crecimiento (ideas adaptadas de GoHighLevel)
+Lo que más valor da a una consultora SEO que trabaja sola, sin la complejidad de GoHighLevel:
+- **Automatizaciones con esperas y condiciones**: acciones "Esperar" (minutos/horas/días), "Esperar hasta la fecha límite"
+  (antes/después del vencimiento de una cuenta de cobro, a las 9:00) y "Detener si…" (el cliente respondió, la cuenta ya está
+  pagada, tiene una oportunidad en cierta etapa). Disparador nuevo "Se envía una cuenta de cobro" (solo el primer envío).
+  "Se crea un contacto" puede filtrar por origen (formulario, WhatsApp, Facebook, Instagram…).
+- **Plantillas**: recordatorios de cobro, seguimiento a prospecto sin respuesta, pedir reseña en Google (se crea en pausa para
+  poner el enlace) y bienvenida a leads del formulario web.
+- **Formularios de captura**: página pública `/f/{id}` (bio de Instagram, campañas) y HTML para pegar en la web; crea el contacto
+  (o agrega una nota si ya existe), guarda página y UTM, pide autorización de datos (Ley 1581 de 2012), anti-spam básico.
+- **Reportes**: origen de los contactos y cuántos se volvieron clientes, tasa de cierre, cobrado por mes/servicio/cliente,
+  cartera por antigüedad y tiempo de respuesta.
+- **Respuestas rápidas editables** en el chat.
+
+Fuera de esta fase (están en "Fuera del MVP" y los decide Valentina): calendario de citas, pasarela de pago, IA.
+
+**Importante para producción:** las esperas continúan cuando corre `runBackgroundWork()` (cualquier acción en el CRM, la API,
+un webhook de Meta o un formulario) o el cron `/api/cron/process-events`. Para que un recordatorio salga a la hora aunque nadie
+use el CRM, ese cron debe correr seguido (cada 5–15 min). Si el plan de Vercel no lo permite, un servicio externo de cron puede
+llamar esa URL con `Authorization: Bearer $CRON_SECRET` (verificar condiciones del servicio elegido).

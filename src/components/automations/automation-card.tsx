@@ -8,25 +8,29 @@ import { automationRunsAction, deleteAutomationAction, toggleAutomationAction } 
 import { ConfirmDialog } from "@/components/crm/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import type { AutomationAction, RunDetail } from "@/lib/automation-engine";
-import { ACTION_LABEL, STAGE_LABEL, TRIGGER_LABEL } from "@/lib/constants";
+import { describeAction, type AutomationAction, type RunDetail } from "@/lib/automation-engine";
+import { ACTION_LABEL, CONTACT_SOURCE_LABEL, STAGE_LABEL, TRIGGER_LABEL } from "@/lib/constants";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { AutomationBuilder, type EditableAutomation } from "./automation-builder";
 
-export type AutomationView = EditableAutomation & { active: boolean; runCount: number; lastRun: { createdAt: Date; ok: boolean } | null };
+export type AutomationView = EditableAutomation & { active: boolean; runCount: number; waiting: number; lastRun: { createdAt: Date; ok: boolean } | null };
 
 function actionText(a: AutomationAction) {
-  const value = a.type === "move_stage" ? STAGE_LABEL[a.value] : a.value;
+  const value = describeAction(a);
   return value.length > 60 ? `${value.slice(0, 60)}…` : value;
 }
+
+const isFlowStep = (a: AutomationAction) => a.type === "wait" || a.type === "wait_due" || a.type === "stop_if";
 
 export function AutomationCard({ automation }: { automation: AutomationView }) {
   const [active, setActive] = useOptimistic(automation.active);
   const conditionLabel =
     automation.condition && automation.trigger === "DEAL_STAGE_CHANGED"
       ? STAGE_LABEL[automation.condition as keyof typeof STAGE_LABEL]
-      : automation.condition;
+      : automation.condition && automation.trigger === "CONTACT_CREATED"
+        ? (CONTACT_SOURCE_LABEL[automation.condition] ?? automation.condition)
+        : automation.condition;
 
   return (
     <article className="flex items-start gap-4 rounded-[10px] border bg-card p-[18px]">
@@ -60,7 +64,12 @@ export function AutomationCard({ automation }: { automation: AutomationView }) {
           {automation.actions.map((a, i) => (
             <span key={i} className="contents">
               <span className="text-muted-foreground">→</span>
-              <span className="rounded-[7px] border bg-[#fafbfc] px-2.5 py-[5px] text-[12.5px]">
+              <span
+                className={cn(
+                  "rounded-[7px] border px-2.5 py-[5px] text-[12.5px]",
+                  isFlowStep(a) ? "border-dashed border-[#c9d3e0] bg-info-soft text-info" : "bg-[#fafbfc]",
+                )}
+              >
                 <strong>{ACTION_LABEL[a.type]}</strong>: {actionText(a)}
               </span>
             </span>
@@ -68,6 +77,12 @@ export function AutomationCard({ automation }: { automation: AutomationView }) {
         </div>
         <div className="mt-2 text-[12.5px] text-muted-foreground">
           Ejecutada {automation.runCount} {automation.runCount === 1 ? "vez" : "veces"} · {active ? "Activa" : "Pausada"}
+          {automation.waiting ? (
+            <span className="text-info">
+              {" "}
+              · ⏳ {automation.waiting} {automation.waiting === 1 ? "contacto en espera" : "contactos en espera"}
+            </span>
+          ) : null}
           {automation.lastRun ? (
             <>
               {" "}
@@ -149,6 +164,7 @@ function RunsDialog({ automationId, name }: { automationId: string; name: string
                     )}
                   </span>
                   <span className="text-muted-foreground">
+                    {r.detail?.segment === "resume" ? "Continuación · " : ""}
                     {formatDateTime(r.createdAt)} · {r.ok ? <span className="text-primary">OK</span> : <span className="text-destructive">Con errores</span>}
                   </span>
                 </div>
@@ -162,6 +178,7 @@ function RunsDialog({ automationId, name }: { automationId: string; name: string
                     </li>
                   ))}
                 </ol>
+                {r.detail?.pausedUntil ? <p className="mt-1.5 text-[12px] text-info">⏳ Sigue el {formatDateTime(r.detail.pausedUntil)}</p> : null}
               </li>
             ))}
           </ul>

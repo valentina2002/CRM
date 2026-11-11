@@ -17,6 +17,6 @@ export function proxy(request: NextRequest, event: NextFetchEvent) {
 }
 
 export const config = {
-  // Everything except Auth.js endpoints, public API/webhooks (they use their own auth) and static files.
-  matcher: ["/((?!api/|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|svg|ico|webp)$).*)"],
+  // Everything except Auth.js endpoints, public API/webhooks/forms (their own auth), public form pages (/f/…) and static files.
+  matcher: ["/((?!api/|f/|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|svg|ico|webp)$).*)"],
 };

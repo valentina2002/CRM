@@ -111,11 +111,12 @@ export type TemplateVars = {
   empresa?: string;
   factura?: string;
   valor?: string;
+  vence?: string;
 };
 
-/** Replaces {nombre} {empresa} {factura} {valor}; unknown or missing variables become "". */
+/** Replaces {nombre} {empresa} {factura} {valor} {vence}; unknown or missing variables become "". */
 export function fillTemplate(text: string, vars: TemplateVars): string {
-  return text.replace(/\{(nombre|empresa|factura|valor)\}/g, (_, key: keyof TemplateVars) => vars[key] ?? "");
+  return text.replace(/\{(nombre|empresa|factura|valor|vence)\}/g, (_, key: keyof TemplateVars) => vars[key] ?? "");
 }
 
 /** First name, used by {nombre}. */

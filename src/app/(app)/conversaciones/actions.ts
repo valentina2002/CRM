@@ -9,6 +9,7 @@ import {
   sendTextMessage,
   simulateWebhook,
 } from "@/lib/services/conversations";
+import { MAX_QUICK_REPLIES, saveQuickReplies } from "@/lib/services/quick-replies";
 import { getSendingCredentials } from "@/lib/services/whatsapp-account";
 import { requireUser } from "@/lib/session";
 import { listApprovedTemplates } from "@/lib/whatsapp/graph";
@@ -84,4 +85,27 @@ export async function simulateAction(contactId: string, kind: "inbound" | "echo"
   const parsedChannel = channelSchema.safeParse(channel);
   if (!parsed.success || !parsedChannel.success || !id.safeParse(contactId).success || !["inbound", "echo"].includes(kind)) return fail("Datos inválidos");
   return runAction(() => simulateWebhook(contactId, kind, parsed.data, parsedChannel.data));
+}
+
+const quickRepliesSchema = z
+  .string()
+  .max(MAX_QUICK_REPLIES * 320)
+  .transform((v) =>
+    v
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean),
+  )
+  .pipe(
+    z
+      .array(z.string().max(300, "Cada respuesta puede tener máximo 300 caracteres"))
+      .max(MAX_QUICK_REPLIES, `Máximo ${MAX_QUICK_REPLIES} respuestas rápidas`),
+  );
+
+/** One quick reply per line. */
+export async function saveQuickRepliesAction(raw: string) {
+  await requireUser();
+  const parsed = quickRepliesSchema.safeParse(raw);
+  if (!parsed.success) return fail(firstError(parsed.error));
+  return runAction(() => saveQuickReplies(parsed.data));
 }

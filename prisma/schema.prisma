@@ -11,6 +11,8 @@
 // Phase 2: Invoice.sentAt, Invoice.paidAt as @db.Date (a calendar day, avoids time-zone month shifts),
 //          IssuerSettings.showAmountInWords.
 // Phase 4: Message.meta, ChannelAccount.sync (coexistence sync state).
+// Phase 7: TriggerType.INVOICE_SENT; AutomationJob (automations paused on a "wait" step, resumed later);
+//          LeadForm + LeadSubmission (public lead capture forms); QuickReply (editable chat snippets).
 // Phase 5: ApiKey.rateWindowStart / rateCount (per-key rate limit kept in the DB, serverless has no shared memory);
 //          WebhookDelivery is one row per (endpoint, event) that tracks its retries: eventType, error, lastAttemptAt,
 //          unique (endpointId, eventId) so an event is never queued twice; WebhookEndpoint.secret is stored encrypted.
@@ -45,24 +47,25 @@ enum Channel {
 }
 
 model Contact {
-  id           String           @id @default(cuid())
-  name         String
-  company      String?
-  phone        String?          @unique // E.164 normalized (WhatsApp)
-  email        String?
-  service      String?
-  tags         String[]
-  monthlyValue Int              @default(0) // COP
-  source       String? // manual | api | whatsapp | facebook | instagram | tiktok | app_sync
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  channels     ContactChannel[]
-  deals        Deal[]
-  conversation Conversation?
-  invoices     Invoice[]
-  tasks        Task[]
-  notes        Note[]
-  activity     ActivityLog[]
+  id             String           @id @default(cuid())
+  name           String
+  company        String?
+  phone          String?          @unique // E.164 normalized (WhatsApp)
+  email          String?
+  service        String?
+  tags           String[]
+  monthlyValue   Int              @default(0) // COP
+  source         String? // manual | api | whatsapp | facebook | instagram | tiktok | app_sync
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  channels       ContactChannel[]
+  deals          Deal[]
+  conversation   Conversation?
+  invoices       Invoice[]
+  tasks          Task[]
+  notes          Note[]
+  activity       ActivityLog[]
+  automationJobs AutomationJob[]
 }
 
 /// Identity of a contact on a given channel (WhatsApp wa_id, Facebook PSID, Instagram IGSID, TikTok id).
@@ -196,11 +199,11 @@ model InvoiceItem {
 }
 
 model IssuerSettings {
-  id          Int    @id @default(1)
-  name        String
-  document    String // C.C. / NIT
-  city        String
-  paymentInfo String
+  id                Int     @id @default(1)
+  name              String
+  document          String // C.C. / NIT
+  city              String
+  paymentInfo       String
   showAmountInWords Boolean @default(true) // "Son: dos millones … pesos M/CTE" on the document
 }
 
@@ -210,6 +213,7 @@ enum TriggerType {
   DEAL_STAGE_CHANGED
   INVOICE_PAID
   INVOICE_OVERDUE
+  INVOICE_SENT
 }
 
 model Automation {
@@ -222,6 +226,28 @@ model Automation {
   runCount  Int             @default(0)
   createdAt DateTime        @default(now())
   runs      AutomationRun[]
+  jobs      AutomationJob[]
+}
+
+/// An automation run paused on a "wait" step. The processor resumes it at `resumeAt` from action `nextIndex`.
+model AutomationJob {
+  id           String     @id @default(cuid())
+  automationId String
+  automation   Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  contactId    String
+  contact      Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  eventId      String
+  event        Json // { type, payload } of the event that started the run
+  nextIndex    Int
+  startedAt    DateTime // when the run started ("¿respondió desde entonces?")
+  resumeAt     DateTime
+  status       String     @default("pending") // pending | processing | done | cancelled | failed
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([status, resumeAt])
+  @@index([automationId, status])
+  @@index([contactId])
 }
 
 model AutomationRun {
@@ -334,4 +360,44 @@ model WebhookDelivery {
   @@unique([endpointId, eventId])
   @@index([ok, nextTryAt])
   @@index([endpointId, createdAt])
+}
+
+/// Public lead capture form (hosted page /f/{publicId} or embedded on Valentina's website).
+model LeadForm {
+  id             String           @id @default(cuid())
+  publicId       String           @unique // random, used in the public URL
+  name           String
+  tags           String[]
+  service        String?
+  successMessage String
+  redirectUrl    String?
+  active         Boolean          @default(true)
+  submissions    Int              @default(0)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  entries        LeadSubmission[]
+}
+
+/// One submission (also used to rate-limit by IP without storing the IP itself).
+model LeadSubmission {
+  id        String   @id @default(cuid())
+  formId    String
+  form      LeadForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+  contactId String?
+  ipHash    String
+  pageUrl   String?
+  utm       Json?
+  isNew     Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([formId, createdAt])
+  @@index([ipHash, createdAt])
+}
+
+/// Editable quick replies shown above the chat composer.
+model QuickReply {
+  id        String   @id @default(cuid())
+  text      String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
 }

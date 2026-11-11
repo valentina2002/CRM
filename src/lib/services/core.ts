@@ -14,11 +14,13 @@ export class DomainError extends Error {
   }
 }
 
+/** invoice.sent = first time a cuenta de cobro is sent (starts the reminder automations). */
 export type EventType =
   | "contact.created"
   | "message.received"
   | "message.sent"
   | "deal.stage_changed"
+  | "invoice.sent"
   | "invoice.paid"
   | "invoice.overdue";
 

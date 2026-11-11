@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Stage } from "@/generated/prisma/enums";
+import { formatCOP } from "@/lib/format";
 import {
   automationInputSchema,
+  describeAction,
+  dueResumeAt,
   matches,
   parseActions,
+  resumeAutomation,
   runAutomationsForEvent,
   type AutomationDef,
   type EngineContact,
@@ -259,5 +263,148 @@ describe("automation input", () => {
   it("parseActions drops invalid stored actions", () => {
     expect(parseActions([{ type: "add_tag", value: "vip" }, { type: "explode", value: 1 }, null])).toEqual([{ type: "add_tag", value: "vip" }]);
     expect(parseActions("nope")).toEqual([]);
+  });
+});
+
+// ---------- Phase 7: waits, due-date waits and stop conditions ----------
+
+describe("waits and conditions", () => {
+  const NOW = new Date("2026-11-10T15:00:00Z"); // 10:00 Bogotá
+
+  function withPauses() {
+    const w = makeWorld();
+    const scheduled: import("./automation-engine").PausedRun[] = [];
+    const replied = new Set<string>();
+    const paid = new Set<string>();
+    let now = NOW;
+    w.ports.now = () => now;
+    w.ports.schedule = async (run) => {
+      scheduled.push(run);
+    };
+    w.ports.shouldStop = async (condition, ctx) => {
+      if (condition === "replied") return replied.has(ctx.contactId);
+      if (condition === "invoice_paid") return paid.has((ctx.event.payload as { invoiceId: string }).invoiceId);
+      if (condition.startsWith("stage:")) return w.deals.some((d) => d.contactId === ctx.contactId && d.stage === condition.slice(6));
+      return false;
+    };
+    return { ...w, scheduled, replied, paid, setNow: (d: Date) => (now = d) };
+  }
+
+  const followUp = auto({
+    trigger: "CONTACT_CREATED",
+    actions: [
+      { type: "send_whatsapp", value: "Hola {nombre}" },
+      { type: "wait", value: "2d" },
+      { type: "stop_if", value: "replied" },
+      { type: "send_whatsapp", value: "¿Pudiste ver mi mensaje, {nombre}?" },
+    ],
+  });
+
+  it("runs until the wait, schedules the rest and records the pause", async () => {
+    const w = withPauses();
+    await runAutomationsForEvent({ id: "e1", type: "contact.created", payload: { contactId: "c1" } }, [followUp], w.ports);
+    expect(w.messages.map((m) => m.text)).toEqual(["Hola Carlos"]);
+    expect(w.scheduled).toHaveLength(1);
+    expect(w.scheduled[0]).toMatchObject({ automationId: "a1", eventId: "e1", contactId: "c1", nextIndex: 2, startedAt: NOW });
+    expect(w.scheduled[0].resumeAt.toISOString()).toBe("2026-11-12T15:00:00.000Z");
+    expect(w.runs[0].detail).toMatchObject({ segment: "start", pausedUntil: "2026-11-12T15:00:00.000Z" });
+    expect(w.runs[0].ok).toBe(true);
+  });
+
+  it("resumes after the wait and sends the follow-up when the customer did not reply", async () => {
+    const w = withPauses();
+    await runAutomationsForEvent({ id: "e1", type: "contact.created", payload: { contactId: "c1" } }, [followUp], w.ports);
+    w.setNow(w.scheduled[0].resumeAt);
+    const r = await resumeAutomation(w.scheduled[0], followUp, w.ports);
+    expect(r).toEqual({ ok: true, paused: false });
+    expect(w.messages.map((m) => m.text)).toEqual(["Hola Carlos", "¿Pudiste ver mi mensaje, Carlos?"]);
+    expect(w.runs[1].detail.segment).toBe("resume");
+  });
+
+  it("stops when the customer replied in the meantime", async () => {
+    const w = withPauses();
+    await runAutomationsForEvent({ id: "e1", type: "contact.created", payload: { contactId: "c1" } }, [followUp], w.ports);
+    w.replied.add("c1");
+    await resumeAutomation(w.scheduled[0], followUp, w.ports);
+    expect(w.messages).toHaveLength(1);
+    expect(w.runs[1].detail.stopped).toBe("el cliente respondió");
+    expect(w.runs[1].ok).toBe(true);
+  });
+
+  it("does not resume a paused (deactivated) or deleted automation", async () => {
+    const w = withPauses();
+    await runAutomationsForEvent({ id: "e1", type: "contact.created", payload: { contactId: "c1" } }, [followUp], w.ports);
+    expect(await resumeAutomation(w.scheduled[0], { ...followUp, active: false }, w.ports)).toBeNull();
+    expect(await resumeAutomation(w.scheduled[0], null, w.ports)).toBeNull();
+    expect(w.messages).toHaveLength(1);
+  });
+
+  it("stop_if by stage", async () => {
+    const w = withPauses();
+    const a = auto({ trigger: "CONTACT_CREATED", actions: [{ type: "stop_if", value: "stage:PROSPECT" }, { type: "create_task", value: "Llamar" }] });
+    await runAutomationsForEvent({ id: "e1", type: "contact.created", payload: { contactId: "c1" } }, [a], w.ports);
+    expect(w.tasks).toHaveLength(0);
+    expect(w.runs[0].detail.stopped).toBe("tiene una oportunidad en Prospecto");
+  });
+
+  const reminders = auto({
+    trigger: "INVOICE_SENT",
+    actions: [
+      { type: "wait_due", value: "-3" },
+      { type: "stop_if", value: "invoice_paid" },
+      { type: "send_whatsapp", value: "{nombre}, la cuenta {factura} por {valor} vence el {vence}" },
+    ],
+  });
+  const sent = (dueDate: string): EngineEvent => ({ id: "e9", type: "invoice.sent", payload: { contactId: "c1", invoiceId: "i1", number: "CC-007", total: 1500000, dueDate } });
+
+  it("wait_due pauses until N days before the due date at 9:00 Bogotá", async () => {
+    const w = withPauses();
+    await runAutomationsForEvent(sent("2026-11-25"), [reminders], w.ports);
+    expect(dueResumeAt("2026-11-25", -3).toISOString()).toBe("2026-11-22T14:00:00.000Z");
+    expect(w.scheduled[0].resumeAt.toISOString()).toBe("2026-11-22T14:00:00.000Z");
+    expect(w.messages).toHaveLength(0);
+  });
+
+  it("wait_due continues right away when that date already passed, and fills {vence}", async () => {
+    const w = withPauses();
+    await runAutomationsForEvent(sent("2026-11-11"), [reminders], w.ports);
+    expect(w.scheduled).toHaveLength(0);
+    expect(w.messages.map((m) => m.text)).toEqual([`Carlos, la cuenta CC-007 por ${formatCOP(1500000)} vence el 11 nov 2026`]);
+  });
+
+  it("a paid cuenta de cobro stops the reminder", async () => {
+    const w = withPauses();
+    await runAutomationsForEvent(sent("2026-11-25"), [reminders], w.ports);
+    w.paid.add("i1");
+    await resumeAutomation(w.scheduled[0], reminders, w.ports);
+    expect(w.messages).toHaveLength(0);
+    expect(w.runs[1].detail.stopped).toBe("la cuenta de cobro ya está pagada");
+  });
+
+  it("contact created can be filtered by origin", () => {
+    const a = auto({ trigger: "CONTACT_CREATED", condition: "form", actions: [{ type: "create_task", value: "t" }] });
+    expect(matches(a, { id: "e", type: "contact.created", payload: { contactId: "c1", source: "form" } })).toBe(true);
+    expect(matches(a, { id: "e", type: "contact.created", payload: { contactId: "c1", source: "whatsapp" } })).toBe(false);
+  });
+
+  it("validates waits, due-date waits, stop conditions and the last action", () => {
+    const base = { name: "x", trigger: "INVOICE_SENT" as const };
+    expect(automationInputSchema.safeParse({ ...base, actions: [{ type: "wait", value: "2d" }, { type: "create_task", value: "t" }] }).success).toBe(true);
+    expect(automationInputSchema.safeParse({ ...base, actions: [{ type: "wait", value: "91d" }, { type: "create_task", value: "t" }] }).success).toBe(false);
+    expect(automationInputSchema.safeParse({ ...base, actions: [{ type: "wait", value: "2 días" }, { type: "create_task", value: "t" }] }).success).toBe(false);
+    expect(automationInputSchema.safeParse({ ...base, actions: [{ type: "create_task", value: "t" }, { type: "wait", value: "1h" }] }).success).toBe(false);
+    expect(automationInputSchema.safeParse({ name: "x", trigger: "CONTACT_CREATED", actions: [{ type: "wait_due", value: "-3" }, { type: "create_task", value: "t" }] }).success).toBe(false);
+    expect(automationInputSchema.safeParse({ name: "x", trigger: "CONTACT_CREATED", actions: [{ type: "stop_if", value: "invoice_paid" }, { type: "create_task", value: "t" }] }).success).toBe(false);
+    expect(automationInputSchema.safeParse({ name: "x", trigger: "CONTACT_CREATED", actions: [{ type: "stop_if", value: "stage:Ganado" }, { type: "create_task", value: "t" }] }).success).toBe(false);
+    expect(automationInputSchema.safeParse({ name: "x", trigger: "CONTACT_CREATED", condition: "form", actions: [{ type: "create_task", value: "t" }] }).success).toBe(true);
+    expect(automationInputSchema.safeParse({ name: "x", trigger: "CONTACT_CREATED", condition: "tiktok", actions: [{ type: "create_task", value: "t" }] }).success).toBe(false);
+  });
+
+  it("describes actions in Spanish", () => {
+    expect(describeAction({ type: "wait", value: "2d" })).toBe("2 días");
+    expect(describeAction({ type: "wait", value: "1h" })).toBe("1 hora");
+    expect(describeAction({ type: "wait_due", value: "-3" })).toBe("3 días antes de la fecha límite");
+    expect(describeAction({ type: "wait_due", value: "0" })).toBe("el día de la fecha límite");
+    expect(describeAction({ type: "stop_if", value: "replied" })).toBe("el cliente respondió");
   });
 });

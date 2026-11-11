@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { fail, runAction } from "@/lib/action-result";
 import { automationInputSchema } from "@/lib/automation-engine";
-import { createAutomation, deleteAutomation, listAutomationRuns, setAutomationActive, updateAutomation } from "@/lib/services/automations";
+import { createAutomation, createAutomationFromTemplate, deleteAutomation, listAutomationRuns, setAutomationActive, updateAutomation } from "@/lib/services/automations";
 import { requireUser } from "@/lib/session";
 import { firstError } from "@/lib/validation";
 
@@ -35,4 +35,12 @@ export async function automationRunsAction(automationId: string) {
   await requireUser();
   if (!id.safeParse(automationId).success) return [];
   return listAutomationRuns(automationId);
+}
+
+export async function applyTemplateAction(key: string) {
+  if (!/^[a-z-]{1,40}$/.test(key)) return fail("Plantilla inválida");
+  return runAction(async () => {
+    const a = await createAutomationFromTemplate(key);
+    return { id: a.id, active: a.active };
+  });
 }
