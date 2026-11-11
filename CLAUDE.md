@@ -126,6 +126,30 @@ Next.js (App Router) + TypeScript estricto · Tailwind CSS + shadcn/ui · Postgr
 - Ajustes → "API REST del CRM" (crear/revocar keys) y "Webhooks salientes" (crear, pausar, probar con `ping`, eliminar,
   últimas entregas). La página tiene un probador de la API como el del prototipo.
 
+## Notas técnicas (Fase 6 · Despliegue)
+- **Producción:** https://crm-seo-ten.vercel.app (Vercel, proyecto `crm-seo` del equipo `valentina-f1c3`, plan Hobby, rama `main`,
+  funciones en `iad1`). Build Command: `npx prisma migrate deploy && npx next build` → las migraciones se aplican en cada
+  despliegue de producción con `DATABASE_URL`. **Nunca** correr `npm run db:seed` contra producción (borra todo).
+- **Base de datos:** Supabase, proyecto `crm-seo` (ref `plizaarrpkozftyyczii`, us-east-1, plan Free, Postgres 17).
+  La app y las migraciones usan un rol propio `prisma` (recomendación de Supabase: `bypassrls`, `createdb`, permisos sobre `public`),
+  no el usuario `postgres`. Conexión por el **session pooler** (IPv4): `aws-1-us-east-1.pooler.supabase.com:5432`, usuario
+  `prisma.plizaarrpkozftyyczii`, con `?uselibpqcompat=true&sslmode=require` (sin eso `pg` trata `require` como `verify-full` y falla
+  con "self-signed certificate in certificate chain"). La contraseña del rol solo vive en la variable de Vercel.
+- **Seguridad Supabase:** las tablas de Prisma (dueño `prisma`) no tienen permisos para `anon`/`authenticated`; además todas tienen
+  **RLS activado sin políticas** y hay un event trigger `rls_auto_enable` que activa RLS en cada tabla nueva de `public`. Los advisors
+  de seguridad solo muestran el aviso informativo "RLS enabled, no policy" (esperado). La app no usa la Data API.
+- **Variables de entorno (Production):** `DATABASE_URL`, `AUTH_SECRET`, `ENCRYPTION_KEY`, `CRON_SECRET`, `WHATSAPP_VERIFY_TOKEN`
+  (sensitive) · `DATABASE_POOL_MAX=3`, `META_GRAPH_VERSION=v27.0`, `APP_URL`. Sin `AUTH_URL` (trustHost). `META_APP_ID`,
+  `META_APP_SECRET`, `META_EMBEDDED_SIGNUP_CONFIG_ID` aún sin definir. Se cargan con la CLI (`vercel env add … --sensitive`), nunca en el repo.
+  Cambiar `ENCRYPTION_KEY` deja ilegibles los tokens y secretos cifrados guardados.
+- **Usuaria:** una sola fila en `User` (rol ADMIN, bcrypt costo 12), sin datos de ejemplo.
+- **Crons:** `vercel.json` solo programa `/api/cron/check-overdue` (diario 11:00 UTC). `/api/cron/process-events` no está programado:
+  en Hobby los cron jobs solo pueden ser diarios; para reintentos de WhatsApp/webhooks cada pocos minutos hace falta Pro o un cron externo
+  que llame la ruta con `Authorization: Bearer $CRON_SECRET`.
+- **Webhook de WhatsApp (Meta):** `https://crm-seo-ten.vercel.app/api/webhooks/whatsapp` con el `WHATSAPP_VERIFY_TOKEN` de Vercel.
+- **Pendiente:** conectar WhatsApp (Meta), dominio propio, programar `process-events`, y pasar a **Vercel Pro** antes de usarlo con
+  clientes (Hobby es solo para uso personal no comercial).
+
 ## Reglas
 - Idioma: **interfaz, textos y mensajes en español (Colombia)**. Código, nombres de variables y commits en inglés.
 - Moneda COP (`Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })`), zona horaria `America/Bogota`, fechas `dd mmm yyyy`.
